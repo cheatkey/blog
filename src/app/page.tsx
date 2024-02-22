@@ -1,5 +1,6 @@
 import Image from "next/image";
-import PostCard from "@/app/components/PostCard";
+import PostCard from "@/components/PostCard";
+import { ThemeChanger } from "@/components/ThemeChanger";
 
 export default function Home() {
   return (
