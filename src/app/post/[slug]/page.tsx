@@ -4,6 +4,9 @@ import fs from "fs/promises";
 import { Suspense } from "react";
 
 import { compileMDX } from "next-mdx-remote/rsc";
+import remarkGfm from "remark-gfm";
+import { codeHighlightOption } from "./utils/codeHighlight";
+import rehypePrettyCode from "rehype-pretty-code";
 import _ from "lodash-es";
 
 const components = {
@@ -63,6 +66,10 @@ const PostPage = async ({ params }: PostPageProps) => {
     source: markdown,
     options: {
       parseFrontmatter: true,
+      mdxOptions: {
+        remarkPlugins: [remarkGfm],
+        rehypePlugins: [[rehypePrettyCode as any, codeHighlightOption]],
+      },
     },
     components,
   });
