@@ -1,9 +1,17 @@
-interface IconWrapperProps {
+import { cn } from "@/utils/cn";
+
+interface IconWrapperProps extends React.ComponentProps<"div"> {
   children: React.ReactNode;
 }
-const IconWrapper = ({ children }: IconWrapperProps) => {
+const IconWrapper = ({ children, ...props }: IconWrapperProps) => {
   return (
-    <div className="hover:bg-gray-700 transition-colors p-2 rounded-xl cursor-pointer">
+    <div
+      {...props}
+      className={cn(
+        "hover:bg-gray-700 transition-colors p-2 rounded-xl cursor-pointer",
+        props.className
+      )}
+    >
       {children}
     </div>
   );

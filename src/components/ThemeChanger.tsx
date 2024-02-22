@@ -14,13 +14,13 @@ export const ThemeChanger = () => {
 
   if (theme === "light")
     return (
-      <IconWrapper>
-        <RiSunFill size={18} onClick={() => setTheme("dark")} />
+      <IconWrapper onClick={() => setTheme("dark")}>
+        <RiSunFill size={18} />
       </IconWrapper>
     );
   return (
-    <IconWrapper>
-      <RiMoonFill size={18} onClick={() => setTheme("light")} />
+    <IconWrapper onClick={() => setTheme("light")}>
+      <RiMoonFill size={18} />
     </IconWrapper>
   );
 };
