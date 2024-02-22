@@ -1,0 +1,19 @@
+---
+title: RSC Frontmatter Example
+---
+
+# Hello World
+AAAAAAAAAA
+This is from Server Components! 
+
+```ts {1,3}
+type ExtractState<S> = S extends {
+  getState: () => infer T
+}
+  ? T
+  : never
+
+export type ZustandGetType<T> = ExtractState<
+  T extends UseBoundStore<infer U> ? U : T
+>
+```
