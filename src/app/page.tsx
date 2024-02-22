@@ -1,6 +1,5 @@
 import Image from "next/image";
 import PostCard from "@/components/PostCard";
-import { ThemeChanger } from "@/components/ThemeChanger";
 
 export default function Home() {
   return (
@@ -16,6 +15,8 @@ export default function Home() {
           <h2 className="text-4xl font-bold text-gray-100">
             시리즈로 작성된 글
           </h2>
+
+          <p className="text-red-700 dark:text-blue-500">test</p>
 
           <div className="w-full h-48 bg-gray-600 rounded-lg p-6">
             zustand 마스터리
