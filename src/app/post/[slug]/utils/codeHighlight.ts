@@ -2,7 +2,7 @@ import dark from "./dark.json";
 
 export const codeHighlightOption = {
   theme: dark,
-  keepBackground: true,
+  keepBackground: false,
 
   onVisitLine(node: any) {
     if (node.children.length === 0) {

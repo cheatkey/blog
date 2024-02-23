@@ -1,0 +1,66 @@
+li > code,
+ul > code,
+p > code {
+  display: inline;
+  background: #f4f4f5;
+  color: #27272a;
+  font-weight: 600;
+  padding: 0.2rem 0.3rem;
+  border-radius: 0.5rem;
+}
+
+pre,
+code {
+  font-family: Pretendard Variable;
+}
+code[data-line-numbers] {
+  counter-reset: lineNumber;
+}
+
+code[data-line-numbers] span[data-line]::before {
+  counter-increment: lineNumber;
+  content: counter(lineNumber);
+  display: inline-block;
+  text-align: right;
+
+  margin-right: 0.75rem;
+  width: 1rem;
+  color: rgb(255 255 255 / 0.2);
+}
+span[data-line] {
+  width: 100%;
+  display: block;
+  padding-right: 0.75rem;
+  padding-left: 0.75rem;
+}
+figure[data-rehype-pretty-code-figure] .line--highlighted {
+  border-left-color: rgb(253 164 175 / 0.7);
+  background-color: rgb(254 205 211 / 0.1);
+}
+figure[data-rehype-pretty-code-figure] {
+  font-size: 16px;
+  background: linear-gradient(140deg, rgb(165, 142, 251), rgb(65, 206, 189));
+  border-radius: 1.5rem;
+  overflow-x: auto;
+  padding: 0.75rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
+
+  pre {
+    width: fit-content;
+    min-width: 100%;
+    background-color: rgba(0, 0, 0, 0.8) !important;
+    padding: 1rem 0rem;
+    border-radius: 1rem;
+  }
+}
+
+mark {
+  background: #e0f2fe;
+  color: #0c4a6e;
+  font-weight: 600;
+}
+
+::selection {
+  background: #0c4a6e;
+}

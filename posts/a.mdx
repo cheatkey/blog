@@ -1,19 +1,151 @@
 ---
-title: RSC Frontmatter Example
+title: 'jest로 유닛 테스트 작성하기'
+tags: ['jest']
+series: ['프론트엔드 테스트 정복하기', 1]
+date: '2023/06/12'
+description: '유닛 테스트, jest가 뭔지 알아보고 jest를 이용해 간단한 유틸 함수의 테스트를 작성'
 ---
 
-# Hello World
-AAAAAAAAAA
-This is from Server Components! 
+<AuraImage src={"/screencapture-notion-so-1dc8ea300f854fc495c92e11ce95909d-2024-02-23-22_47_28.png"} />
 
-```ts {1,3}
-type ExtractState<S> = S extends {
-  getState: () => infer T
+```js showLineNumbers {3-10}
+import fs from 'fs'
+import { PostDataSchema, PostDataWithSlugType } from '../types/posts'
+import { postsDirCwd, POST_DIR } from './config'
+import { saveThumbnaiImage } from './generateThumbnailImage'
+import { serialize } from 'next-mdx-remote/serialize'
+import rehypePrettyCode from 'rehype-pretty-code'
+import dark from './dark.json'
+
+export const getPostMetaData = (props: {
+  frontmatter?: Record<string, string>
+  slug: string
+}): PostDataWithSlugType => {
+  const meta = PostDataSchema.parse(props.frontmatter)
+  return {
+    ...meta,
+    slug: props.slug,
+  }
 }
-  ? T
-  : never
 
-export type ZustandGetType<T> = ExtractState<
-  T extends UseBoundStore<infer U> ? U : T
->
+export const getAllPosts = async () => {
+  const postFilenames = fs
+    .readdirSync(postsDirCwd)
+    .filter(fileName => fileName.endsWith('.mdx'))
+
+  const posts = await Promise.all(
+    postFilenames.map(async fileName => ({
+      slug: fileName.replace('.mdx', ''),
+      data: await serialize(fs.readFileSync(`${POST_DIR}/${fileName}`), {
+        parseFrontmatter: true,
+      }),
+    })),
+  )
+
+  const postMetaDataList = posts.map(post =>
+    getPostMetaData({
+      frontmatter: post.data.frontmatter,
+      slug: post.slug,
+    }),
+  )
+
+  // postMetaDataList.map(saveThumbnaiImage)
+
+  return postMetaDataList
+}
+
+const options = {
+  theme: dark,
+  keepBackground: true,
+
+  onVisitLine(node: any) {
+    if (node.children.length === 0) {
+      node.children = [{ type: 'text', value: ' ' }]
+    }
+  },
+  onVisitHighlightedLine(node: any) {
+    if (!node.properties.className) {
+      node.properties.className = ['highlighted']
+    } else {
+      node.properties.className.push('highlighted')
+    }
+  },
+  onVisitHighlightedWord(node: any) {
+    node.properties.className = ['word']
+  },
+}
+
+export const getPost = async (slug: string) =>
+  await serialize(fs.readFileSync(`${POST_DIR}/${slug}.mdx`), {
+    parseFrontmatter: true,
+    mdxOptions: {
+      rehypePlugins: [[rehypePrettyCode, options]],
+    },
+  })
+
+export const getRecentPosts = async (postLength: number) =>
+  (await getAllPosts()).sort((a, b) => b.date - a.date).slice(0, postLength)
+
 ```
+
+## 개요
+
+프론트엔드 테스트 정복하기 시리즈를 본격적으로 시작 하는 글입니다.
+
+프론트엔드 테스트를 처음 접하는 개발자를 대상 독자라고 생각하고 작성했습니다.
+
+이번글에서는 <mark>유닛 테스트의 개념과 jest 테스트 프레임워크에 대해서 알아보고, jest를 이용해서 간단한 함수의 테스트 코드를 작성해봅니다.</mark>
+
+## 유닛 테스트란? - 작은 단위의 코드를 테스트
+
+위키 피디아에서는 유닛테스트를 "컴퓨터 프로그래밍에서 소스 코드의 특정 모듈이 의도된 대로 정확히 작동하는지 검증하는 절차다" 라고 설명합니다.
+
+소스 코드를 작은 단위로 분리해서 테스트 하는 것으로 주로 작은 단위의 함수, 메소드가 의도한 대로 동작하는지 확인하는 테스트 코드를 작성합니다.
+
+## Jest란? - 단순함에 중점을 둔 자바스크립트 테스트 프레임워크
+
+공식 사이트에서는 단순함에 중점을 둔 자바스크립트 테스트 프레임워크라고 설명하고 있습니다.
+
+Test Runner, Test Matcher, Mock 등의 기능을 all-in-one으로 번거로운 설정 없이 단순하게 사용할 수 있는 장점이 있어서 현재 자바스크립트 진영에서 인기 있는 테스트 프레임워크입니다.
+
+jest가 아닌 Mocha (Test Runner) + Chai (Test Matcher)의 사용 예시를 보고 싶으시다면 [테스트 자동화와 Mocha](https://ko.javascript.info/testing-mocha)의 글을 참고하세요.
+
+## 간단한 유틸 함수 Jest로 테스트 작성 해보기
+
+감을 잡기 위해서 간단한 유틸 함수 테스트를 작성해보겠습니다.
+
+### 1. 두 숫자를 더하는 함수 테스트 작성해보기
+
+프로그래밍을 처음 배울 때 만들어볼법한 예시입니다. 단순하게 두 숫자를 입력을 받아 더한 값을 리턴하는 함수입니다.
+
+```ts showLineNumbers
+hello
+```
+
+```ts showLineNumbers
+export const sum = (a: number, b: number) => a + b
+```
+
+
+이번 예시에서는 `인자로` 받은 값을 객체로 묶어서 반환하는 함수를 테스트 해보겠습니다.
+
+```ts showLineNumbers
+export const getUser = (name: string, age: number) => ({ name, age })
+```
+  
+```ts showLineNumbers
+describe('getUser 함수 테스트', () => {
+  it('이름과 나이 입력시 객체 형태로 반환 해야 한다.', () => {
+    expect(getUser('kim', 20)).toEqual({
+      name: 'kim',
+      age: 20,
+    })
+  })
+})
+```
+
+## 마무리
+
+유닛 테스트와 jest에 대해 알아보고, 간단한 함수를 jest로 테스트 하는 방법을 알아봤습니다.
+
+다음 글에서는 jest에 대해서 깊이 알아보겠습니다.
