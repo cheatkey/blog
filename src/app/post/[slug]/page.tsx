@@ -9,6 +9,7 @@ import { codeHighlightOption } from "./utils/codeHighlight";
 import rehypePrettyCode from "rehype-pretty-code";
 import _ from "lodash-es";
 import "@/style/codeBlock.css";
+import AuraImage from "./components/AuraImage";
 
 const components: MDXRemoteProps["components"] = {
   h1: (props) => (
@@ -52,7 +53,7 @@ const components: MDXRemoteProps["components"] = {
       {...props}
     />
   ),
-  Special: () => <h1 className="text-red-800">Special</h1>,
+  AuraImage,
 };
 
 export const generateStaticParams = async () => {

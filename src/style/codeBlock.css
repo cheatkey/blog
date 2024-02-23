@@ -42,7 +42,7 @@ figure[data-rehype-pretty-code-figure] {
   background: linear-gradient(140deg, rgb(165, 142, 251), rgb(65, 206, 189));
   border-radius: 1.5rem;
   overflow-x: auto;
-  padding: 1rem;
+  padding: 0.75rem;
   margin-top: 0.5rem;
   margin-bottom: 0.5rem;
 

@@ -6,6 +6,8 @@ date: '2023/06/12'
 description: '유닛 테스트, jest가 뭔지 알아보고 jest를 이용해 간단한 유틸 함수의 테스트를 작성'
 ---
 
+<AuraImage src={"/screencapture-notion-so-1dc8ea300f854fc495c92e11ce95909d-2024-02-23-22_47_28.png"} />
+
 ```js showLineNumbers {3-10}
 import fs from 'fs'
 import { PostDataSchema, PostDataWithSlugType } from '../types/posts'
@@ -116,22 +118,22 @@ jest가 아닌 Mocha (Test Runner) + Chai (Test Matcher)의 사용 예시를 보
 
 프로그래밍을 처음 배울 때 만들어볼법한 예시입니다. 단순하게 두 숫자를 입력을 받아 더한 값을 리턴하는 함수입니다.
 
-```ts
+```ts showLineNumbers
 hello
 ```
 
-```ts
+```ts showLineNumbers
 export const sum = (a: number, b: number) => a + b
 ```
 
 
 이번 예시에서는 `인자로` 받은 값을 객체로 묶어서 반환하는 함수를 테스트 해보겠습니다.
 
-```ts
+```ts showLineNumbers
 export const getUser = (name: string, age: number) => ({ name, age })
 ```
- 
-```ts
+  
+```ts showLineNumbers
 describe('getUser 함수 테스트', () => {
   it('이름과 나이 입력시 객체 형태로 반환 해야 한다.', () => {
     expect(getUser('kim', 20)).toEqual({
