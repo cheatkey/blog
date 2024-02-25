@@ -14,8 +14,12 @@ const snippetListSchema = z.object({
   tags: z.array(z.string()).default([]),
 });
 
-const capitalizeFirstLetter = (word: string) =>
-  word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+const capitalizeAndReplace = (input: string): string => {
+  return input
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+};
 
 const SnippetsPage = async () => {
   const files = await getAllFiles(SNIPPET_PATH);
@@ -30,7 +34,7 @@ const SnippetsPage = async () => {
 
       return snippetListSchema.parse({
         ...frontmatter,
-        category: capitalizeFirstLetter(category ?? ""),
+        category: capitalizeAndReplace((category ?? "").replaceAll("-", " ")),
       });
     })
   );
