@@ -12,6 +12,7 @@ const snippetListSchema = z.object({
   description: z.string().default(""),
   category: z.string(),
   tags: z.array(z.string()).default([]),
+  path: z.string(),
 });
 
 const capitalizeAndReplace = (input: string): string => {
@@ -35,6 +36,9 @@ const SnippetsPage = async () => {
       return snippetListSchema.parse({
         ...frontmatter,
         category: capitalizeAndReplace((category ?? "").replaceAll("-", " ")),
+        path: `/snippet/${category}/${path
+          .basename(filePath)
+          .replace(".mdx", "")}`,
       });
     })
   );
@@ -66,6 +70,7 @@ const SnippetsPage = async () => {
                   title={snippet.title}
                   tags={snippet.tags}
                   description={snippet.description}
+                  href={snippet.path}
                 />
               ))}
             </div>
