@@ -10,6 +10,7 @@ import rehypePrettyCode from "rehype-pretty-code";
 import _ from "lodash-es";
 import "@/style/codeBlock.css";
 import AuraImage from "./components/AuraImage";
+import { getAllFiles } from "@/utils/getAllFiles";
 
 const components: MDXRemoteProps["components"] = {
   h1: (props) => (
@@ -57,25 +58,6 @@ const components: MDXRemoteProps["components"] = {
 };
 
 export const generateStaticParams = async () => {
-  const getAllFiles = async (
-    dirPath: string,
-    arrayOfFiles: string[] = []
-  ): Promise<string[]> => {
-    const files = await fs.readdir(dirPath, { withFileTypes: true });
-
-    for (const file of files) {
-      if (file.isDirectory()) {
-        arrayOfFiles = await getAllFiles(
-          path.join(dirPath, file.name),
-          arrayOfFiles
-        );
-      } else {
-        arrayOfFiles.push(path.join(dirPath, file.name));
-      }
-    }
-    return arrayOfFiles;
-  };
-
   const files = await getAllFiles(POST_PATH);
 
   const result = _.chain(files)
@@ -94,7 +76,6 @@ interface PostPageProps {
 }
 const PostPage = async ({ params }: PostPageProps) => {
   const { slug } = params;
-  console.log("slug:", slug);
   const markdown = await fs.readFile(
     path.join(POST_PATH, `${slug}.mdx`),
     "utf8"
