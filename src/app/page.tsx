@@ -45,6 +45,7 @@ export default function Home() {
                   title={"리액트 디버깅 팁 5가지 "}
                   tags={["REACT", "JAVASCRIPT", "TYPESCRIPT"]}
                   description={"리액트 환경에서 디버깅하는 팁을 소개합니다."}
+                  href=""
                 />
               ))}
           </div>
@@ -75,6 +76,7 @@ export default function Home() {
                         description={
                           "리액트 환경에서 디버깅하는 팁을 소개합니다."
                         }
+                        href=""
                       />
                     ))}
                 </div>

@@ -1,0 +1,31 @@
+---
+title: "[Sheetjs] xlsx 파일 json 데이터로 변환하기"
+description: Sheetjs을 사용해서 엑셀 파일 데이터를 JSON으로 변환
+tags: ["SheetJS"]
+---
+
+```ts showLineNumbers
+import xlsx from "xlsx";
+import path from "path";
+
+const fileName = "<data>.xlsx";
+const filePath = path.join(__dirname, `/${fileName}`);
+const workbook = xlsx.readFile(filePath);
+
+interface ExcelData {
+  name: string;
+  age: number;
+}
+
+const vocXLSXData = xlsx.utils.sheet_to_json<ExcelData>(
+  workbook.Sheets["<sheetname>"]
+);
+```
+
+시트 이름을 지정하는 것 대신, 인덱스로도 시트를 지정할 수 있습니다.
+
+아래코드는 첫 시트를 여는 예시 코드입니다.
+
+```ts showLineNumbers
+xlsx.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+```

@@ -1,0 +1,28 @@
+---
+title: "axios로 이미지 다운로드 받기"
+description: URL 주소 이미지 다운받기
+tags: ["axios", "download"]
+---
+
+```ts showLineNumbers
+const saveImageFile = async (imageUrl: string, savePath: string) => {
+  try {
+    const response = await axios({
+      method: "get",
+      url: imageUrl,
+      responseType: "stream",
+    });
+
+    const writer = fs.createWriteStream(savePath);
+    response.data.pipe(writer);
+
+    return new Promise((resolve, reject) => {
+      writer.on("finish", resolve);
+      writer.on("error", reject);
+    });
+  } catch (error) {
+    console.error("이미지 다운로드 중 오류 발생:", error);
+    throw error;
+  }
+};
+```

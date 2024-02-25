@@ -1,7 +1,7 @@
-interface PostLayoutProps {
+interface SnippetLayoutProps {
   children: React.ReactNode;
 }
-const PostLayout = ({ children }: PostLayoutProps) => {
+const Snippetayout = ({ children }: SnippetLayoutProps) => {
   return (
     <div className="w-full flex justify-center py-14 bg-gray-900 min-h-screen">
       {children}
@@ -9,4 +9,4 @@ const PostLayout = ({ children }: PostLayoutProps) => {
   );
 };
 
-export default PostLayout;
+export default Snippetayout;
