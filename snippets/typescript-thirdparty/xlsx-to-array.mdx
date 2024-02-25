@@ -1,0 +1,11 @@
+---
+title: "[Sheetjs] xlsx 파일 배열 데이터로 변환하기"
+description: 엑셀 파일 데이터를 배열로 변환하기
+tags: ["SheetJS"]
+---
+
+```ts showLineNumbers
+XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], {
+  header: 1,
+});
+```

@@ -1,0 +1,29 @@
+---
+title: "[SheetJS] 스프레드 시트 SheetJS로 열기"
+description: google drive API를 사용하여 스프레드 시트를 SheetJS에서 열기
+tags: ["Google Drive API", "SheetJS"]
+---
+
+```ts showLineNumbers
+const driveApis = google.drive({
+  version: "v3",
+  auth,
+});
+
+const spreadsheetBuffer = (
+  await driveApis.files.export(
+    {
+      fileId: sheetId,
+      mimeType:
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    },
+    {
+      responseType: "arraybuffer",
+    }
+  )
+).data;
+
+const workbook = xlsx.read(spreadsheetBuffer, { type: "buffer" });
+
+const xlsxData = xlsx.utils.sheet_to_json(workbook.Sheets["<sheetname>"]);
+```

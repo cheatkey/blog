@@ -1,0 +1,13 @@
+---
+title: "[Sheetjs] JSON 데이터를 엑셀로 저장"
+description: Sheetjs을 사용해서 JSON 데이터를 엑셀 파일로 저장하기
+tags: ["SheetJS"]
+---
+
+```ts showLineNumbers
+const data = {};
+const wb = XLSX.utils.book_new();
+const ws = XLSX.utils.json_to_sheet(data);
+XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+XLSX.writeFile(wb, "<엑셀파일이름>.xlsx");
+```
