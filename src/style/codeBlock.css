@@ -2,8 +2,8 @@ li > code,
 ul > code,
 p > code {
   display: inline;
-  background: #f4f4f5;
-  color: #27272a;
+  background: #212121;
+  color: #9b9b9b;
   font-weight: 600;
   padding: 0.2rem 0.3rem;
   border-radius: 0.5rem;
