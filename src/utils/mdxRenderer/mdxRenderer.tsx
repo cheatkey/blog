@@ -46,6 +46,12 @@ export const MDXcomponents: MDXRemoteProps["components"] = {
       {...props}
     />
   ),
+  blockquote: (props) => (
+    <blockquote
+      className="pl-4 italic border-l-4 text-gray-300 border-gray-300 quote"
+      {...props}
+    />
+  ),
   AuraImage,
 };
 
