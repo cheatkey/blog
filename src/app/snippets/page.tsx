@@ -8,7 +8,7 @@ import { z } from "zod";
 import _ from "lodash-es";
 
 const snippetListSchema = z.object({
-  title: z.string(),
+  title: z.string().default(""),
   description: z.string().default(""),
   category: z.string(),
   tags: z.array(z.string()).default([]),
@@ -43,10 +43,24 @@ const SnippetsPage = async () => {
     })
   );
 
+  console.log("snippetList:", snippetList);
+
   const snippetsByCategory = _.chain(snippetList)
     .groupBy("category")
     .toPairs()
+    .map(([key, values]) => [
+      key,
+      {
+        description: values.find((v) => v.path.endsWith("index"))?.description,
+        snippets: values.filter((v) => !v.path.endsWith("index")),
+      },
+    ])
     .value();
+
+  type SnippetsDataType = Exclude<
+    (typeof snippetsByCategory)[number][number],
+    string
+  >;
 
   return (
     <div className="flex justify-center bg-gray-900 py-20 min-h-screen">
@@ -58,24 +72,36 @@ const SnippetsPage = async () => {
           <p className="text-gray-400">여기에 설명하는 텍스트를 넣습니다.</p>
         </section>
 
-        {snippetsByCategory.map(([category, snippets]) => (
-          <section key={category} className="flex flex-col gap-4">
-            <h2 className="text-3xl font-bold text-gray-100 tracking-tight">
-              {category} ({snippets.length})
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-              {snippets.map((snippet) => (
-                <PostCard
-                  key={snippet.title}
-                  title={snippet.title}
-                  tags={snippet.tags}
-                  description={snippet.description}
-                  href={snippet.path}
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+        {snippetsByCategory.map((item) => {
+          const [category, { snippets, description }] = item as [
+            string,
+            SnippetsDataType
+          ];
+
+          return (
+            <section key={category} className="flex flex-col gap-4">
+              <div className="flex flex-col gap-2">
+                <h2 className="text-3xl font-bold text-gray-100 tracking-tight">
+                  {category} ({snippets.length})
+                </h2>
+                {!!description && (
+                  <span className="text-gray-200 text-base">{description}</span>
+                )}
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+                {snippets.map((snippet) => (
+                  <PostCard
+                    key={snippet.title}
+                    title={snippet.title}
+                    tags={snippet.tags}
+                    description={snippet.description}
+                    href={snippet.path}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
       </main>
     </div>
   );
