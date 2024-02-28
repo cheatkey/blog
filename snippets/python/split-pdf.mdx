@@ -1,0 +1,35 @@
+---
+title: "파이썬으로 PDF 페이지 자르기"
+description: PyPDF2를 사용해서 PDF 페이지를 자르는 스크립트
+tags: ["pdf"]
+---
+
+```bash showLineNumbers
+pip install PyPDF2
+```
+
+```py showLineNumbers
+import PyPDF2
+
+def split_pdf(input_pdf, start_page, end_page, output_pdf):
+"""
+Parameters:
+input_pdf (str): 분할할 원본 PDF 파일의 경로
+start_page (int): 분할 시작 페이지 번호 (0부터 시작, 첫 페이지는 0이 됩니다)
+end_page (int): 분할 끝 페이지 번호 (이 페이지도 포함됩니다)
+output_pdf (str): 분할된 PDF 파일의 저장 경로
+"""
+    with open(input_pdf, 'rb') as infile:
+        reader = PyPDF2.PdfReader(infile)
+        writer = PyPDF2.PdfWriter()
+
+        for page in range(start_page, end_page + 1):
+            writer.add_page(reader.pages[page])
+
+        with open(output_pdf, 'wb') as outfile:
+            writer.write(outfile)
+
+input_pdf_path = 'your_input.pdf'
+output_pdf_path = 'your_output.pdf'
+split_pdf(input_pdf_path, 0, 4, output_pdf_path)
+```
