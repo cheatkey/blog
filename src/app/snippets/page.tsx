@@ -6,6 +6,11 @@ import { getAllFiles } from "@/utils/getAllFiles";
 import matter from "gray-matter";
 import { z } from "zod";
 import _ from "lodash-es";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "개발 블로그 - 코드 스니펫 모음",
+};
 
 const snippetListSchema = z.object({
   title: z.string().default(""),

@@ -6,6 +6,11 @@ import fs from "fs/promises";
 import matter from "gray-matter";
 import path from "path";
 import { postListSchema } from "./posts/page";
+import { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "개발 블로그",
+};
 
 export default async function Home() {
   const files = await getAllFiles(POST_PATH);
