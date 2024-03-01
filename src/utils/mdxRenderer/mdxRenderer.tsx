@@ -1,5 +1,6 @@
 import { MDXRemoteProps } from "next-mdx-remote/rsc";
 import AuraImage from "./components/AuraImage";
+import Image from "./components/Image";
 import remarkGfm from "remark-gfm";
 import { codeHighlightOption } from "@/app/post/[slug]/utils/codeHighlight";
 import rehypePrettyCode from "rehype-pretty-code";
@@ -52,6 +53,7 @@ export const MDXcomponents: MDXRemoteProps["components"] = {
       {...props}
     />
   ),
+  Image: (props) => <Image src={props.src} alt={props.alt} />,
   AuraImage,
 };
 
