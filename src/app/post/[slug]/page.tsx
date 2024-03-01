@@ -63,7 +63,7 @@ const PostPage = async ({ params }: PostPageProps) => {
 
   return (
     <Suspense fallback={<>Loading...</>}>
-      <div className="w-full max-w-[762px] text-base text-gray-800 dark:text-gray-100">
+      <div className="w-full max-w-[762px] text-base text-gray-800 dark:text-gray-100 px-5">
         <div className="flex flex-col gap-2 pt-8 pb-4 border-b border-gray-700">
           <h1 className="text-3xl leading-10 font-bold text-post-header tracking-tight break-keep">
             {frontmatter.title}
@@ -78,6 +78,8 @@ const PostPage = async ({ params }: PostPageProps) => {
         </div>
 
         <article className="pt-4">{content}</article>
+
+        <div className="flex flex-col h-40"></div>
       </div>
     </Suspense>
   );

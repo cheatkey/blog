@@ -13,13 +13,15 @@ const PostCard = ({ title, description, tags, href }: PostCardProps) => {
     <Link href={href}>
       <div className="group">
         <div className="flex flex-col gap-3 group-hover:bg-gray-800 p-5 rounded-xl transition-colors">
-          <p className="text-gray-200 group-hover:text-gray-100 font-bold mb-2 transition-colors">
-            {title}
-          </p>
+          <div className="flex flex-col gap-3 min-h-24">
+            <p className="text-gray-200 group-hover:text-gray-100 font-bold transition-colors line-clamp-2">
+              {title}
+            </p>
 
-          <p className="text-gray-300 group-hover:text-gray-200 transition-colors">
-            {description}
-          </p>
+            <p className="text-gray-300 group-hover:text-gray-200 transition-colors line-clamp-2">
+              {description}
+            </p>
+          </div>
 
           <TagContainer tags={tags} />
         </div>

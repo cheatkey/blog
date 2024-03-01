@@ -13,20 +13,23 @@ const Navbar = () => {
         </Link>
 
         <div className="flex flex-row gap-4 items-center">
-          <IconWrapper>
+          {/* <IconWrapper>
             <RiSearchLine size={18} />
-          </IconWrapper>
-          <p>posts</p>
-          <p>series</p>
-          <p>tags</p>
+          </IconWrapper> */}
+          <Link href={"/posts"}>
+            <p>posts</p>
+          </Link>
+
+          {/* <p>series</p>
+          <p>tags</p> */}
 
           <Link href={"/snippets"}>
             <p>code snippets</p>
           </Link>
 
-          <p>about</p>
+          {/* <p>about</p> */}
 
-          <ThemeChanger />
+          {/* <ThemeChanger /> */}
         </div>
       </div>
     </nav>

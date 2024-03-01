@@ -1,7 +1,45 @@
 import Image from "next/image";
 import PostCard from "@/components/PostCard";
+import { getAllFiles } from "@/utils/getAllFiles";
+import { POST_PATH } from "@/constants";
+import fs from "fs/promises";
+import matter from "gray-matter";
+import path from "path";
+import { postListSchema } from "./posts/page";
 
-export default function Home() {
+export default async function Home() {
+  const files = await getAllFiles(POST_PATH);
+
+  const postList = await Promise.all(
+    files.map(async (filePath) => {
+      const markdown = await fs.readFile(path.join(filePath), "utf8");
+      const { data: frontmatter } = matter(markdown);
+
+      return postListSchema.parse({
+        ...frontmatter,
+        path: `/post/${path.basename(filePath).replace(".mdx", "")}`,
+      });
+    })
+  );
+
+  return (
+    <div className="flex justify-center min-h-screen bg-gray-900 py-20">
+      <main className="max-w-[1200px] w-full p-4 flex flex-col gap-24 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {postList.map((postData, index) => (
+            <PostCard
+              key={postData.path}
+              title={postData.title}
+              tags={postData.tags}
+              description={postData.description}
+              href={postData.path}
+            />
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+
   return (
     <div className="flex justify-center bg-gray-900 py-20">
       <main className="max-w-[1200px] w-full p-4 flex flex-col gap-24 py-12">

@@ -69,7 +69,7 @@ const SnippetsPage = async () => {
           <h1 className="text-4xl font-bold text-gray-100 tracking-tight">
             Code Snippets
           </h1>
-          <p className="text-gray-400">여기에 설명하는 텍스트를 넣습니다.</p>
+          <p className="text-gray-400">유용한 코드 스니펫 모음</p>
         </section>
 
         {snippetsByCategory.map((item) => {
