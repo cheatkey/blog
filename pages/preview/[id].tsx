@@ -5,15 +5,15 @@ import Link from 'next/link';
 import { Container } from '../../components/container';
 import { AppProvider } from '../../components/contexts/appContext';
 import { Footer } from '../../components/footer';
-import { Header } from '../../components/header';
+import Header from '../../components/header';
 import { Layout } from '../../components/layout';
 import { MarkdownToHtml } from '../../components/markdown-to-html';
 import { PostHeader } from '../../components/post-header';
+import type { Post } from '../../generated/graphql';
 import {
 	DraftByIdDocument,
 	DraftByIdQuery,
 	DraftByIdQueryVariables,
-	Post,
 	Publication,
 	PublicationByHostDocument,
 	PublicationByHostQuery,
