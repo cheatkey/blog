@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+	:root {
+		--background: 0 0% 100%;
+		--foreground: 240 10% 3.9%;
+		--card: 0 0% 100%;
+		--card-foreground: 240 10% 3.9%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 240 10% 3.9%;
+		--primary: 240 5.9% 10%;
+		--primary-foreground: 0 0% 98%;
+		--secondary: 240 4.8% 95.9%;
+		--secondary-foreground: 240 5.9% 10%;
+		--muted: 240 4.8% 95.9%;
+		--muted-foreground: 240 3.8% 46.1%;
+		--accent: 240 4.8% 95.9%;
+		--accent-foreground: 240 5.9% 10%;
+		--destructive: 0 84.2% 60.2%;
+		--destructive-foreground: 0 0% 98%;
+		--border: 240 5.9% 90%;
+		--input: 240 5.9% 90%;
+		--ring: 240 5.9% 10%;
+		--radius: 0.5rem;
+	}
+
+	.dark {
+		--background: 210, 11%, 4%;
+		--foreground: 0 0% 98%;
+		--card: 240 10% 3.9%;
+		--card-foreground: 0 0% 98%;
+		--popover: 240 10% 3.9%;
+		--popover-foreground: 0 0% 98%;
+		--primary: 0 0% 98%;
+		--primary-foreground: 240 5.9% 10%;
+		--secondary: 240 3.7% 15.9%;
+		--secondary-foreground: 0 0% 98%;
+		--muted: 240 3.7% 15.9%;
+		--muted-foreground: 240 5% 64.9%;
+		--accent: 240 3.7% 15.9%;
+		--accent-foreground: 0 0% 98%;
+		--destructive: 0 62.8% 30.6%;
+		--destructive-foreground: 0 0% 98%;
+		--border: 240 3.7% 15.9%;
+		--input: 240 3.7% 15.9%;
+		--ring: 240 4.9% 83.9%;
+	}
+}
+
+@layer components {
+	.container {
+		max-width: 1400px;
+		margin-left: auto;
+		margin-right: auto;
+		padding-left: 1rem;
+		padding-right: 1rem;
+	}
+}
+
+.prose code {
+	border-radius: 0.25rem;
+	font-weight: 400 !important;
+	padding: 0.25rem;
+	--tw-text-opacity: 1;
+	color: rgba(0, 0, 0, var(--tw-text-opacity));
+	font-size: 80%;
+	background: #f0efed;
+}
+
+.dark .prose code {
+	--tw-bg-opacity: 1;
+	background-color: rgba(36, 41, 46, var(--tw-bg-opacity));
+	--tw-text-opacity: 1;
+	color: rgba(238, 238, 238, var(--tw-text-opacity));
+}
+
+.prose {
+	--tw-prose-hr: #c0c0c099;
+	--tw-prose-pre-bg: #151515;
+}
+
+.prose p {
+	margin-bottom: 0;
+	line-height: 1.9;
+}
+
+.dark .dark\:prose-invert {
+	--tw-prose-hr: #42424299 !important;
+}
+
+.prose pre {
+	padding-top: 1rem !important;
+	padding-bottom: 1rem !important;
+}
+
+.prose pre code {
+	background-color: transparent;
+	border-radius: 0px;
+	font-weight: 500 !important;
+	padding: 0px;
+	font-size: 100%;
+	color: #fafafa;
+}
+
+.dark .prose pre code {
+	background-color: transparent;
+	color: #ddd;
+}
