@@ -1,0 +1,325 @@
+import Image from "next/image";
+
+# 모달 관리 시스템 구축기
+
+## 개요
+
+단순한 알림(alert)이나 확인(confirm) 정도를 넘어서, 사용자 입력을 받아야 하거나 파일 업로드 같은 비동기 처리를 수행해야 하는 등 꽤나 복잡한 로직이 모달 안에서 실행되곤 했습니다.
+
+전역 상태에 각 모달을 렌더링할지 결정하는 플래그 변수를 선언하고 이에 따라 렌더링 하는 형태로 구현했는데요.
+
+프로젝트 규모가 커질수록 피로감이 커지고 모달 관련 개발 이슈도 자주 회고 주제로 등장했는데요, 대표적인 문제는 다음과 같았습니다.
+
+- 모달이 열려 있는지 플래그 변수를 전역 상태에 저장해 관리하는 방식은, 모달 수가 늘어날수록 복잡해지고 코드도 많아져 피로도가 높아진다.
+
+- 반대로 상태 없이 (UnControlled) JSX 내에서 트리거를 통해 모달을 띄우는 방식은, 모달을 세밀하게 제어하기 어려워 기능 확장이 어렵다.
+
+- 파일 업로드나 사용자 입력 등 일시적인 상태를 다뤄야 할 때 이를 전역 상태로 처리하면 복잡도가 급격히 올라가고 의도와도 어긋난다.
+
+- (+) 기존 프로젝트가 Redux-Saga 기반이라 React 외부에서도 모달 제어가 필요했습니다.
+
+위와 같은 이유로 비즈니스 로직이 어디에 위치해야 할지 모호해지고, 코드의 응집도 역시 떨어지게 됩니다.
+
+결론적으로 필요한 기능은 다음과 같은 형태였습니다.
+
+- 모달이 아무리 많아도 전역 상태에 플래그 변수를 만들지 않아야 함.
+
+- 모달 내부에서는 zustand, redux 등 상태 값을 자유롭게 읽을 수 있기
+
+- 모달 호출 시 필요한 데이터를 상태에 저장하지 않고 바로 넘길 수 있기
+
+- 마치 하나의 함수처럼 모달을 여는 함수를 호출하고 결과를 Promise로 받아올 수 있게 하기
+
+- (+) 모달 호출부에서 바로 해당 모달 컴포넌트의 코드로 이동할 수 있으면 좋겠다.
+
+이러한 요구를 만족시키기 위해 타입 추론이 가능하고 props를 넘겨 렌더링하며, 결과를 Promise로 반환하는 구조를 만들었습니다.
+
+```ts
+const result = await openModal(FileUploadModal, {
+  acceptedFiles: ".xlsx,.pptx",
+});
+```
+
+## 전체적인 구조
+
+<Image src={"/images/modalType.svg"} width={2000} height={2000} />
+
+## 모달의 상태를 저장하는 스토어 만들기 (useModalState)
+
+스토어의 역할은 아래와 같습니다.
+
+1. 모달 컴포넌트를 저장하기
+2. 모달 여는 함수를 반환하기
+3. 모달을 닫거나 값을 제출하는 함수를 반환하기
+
+```ts
+// useModalState.ts
+
+import { create } from "zustand";
+import { combine } from "zustand/middleware";
+import { immer } from "zustand/middleware/immer";
+import { nanoid } from "nanoid";
+
+type ModalPropsType<T> = {
+  close: () => void;
+  submit: (data: T | null) => void;
+};
+
+export const modalFactory = <InputType, OutputType>(
+  Component: React.FunctionComponent<
+    InputType & {
+      modal: ModalPropsType<OutputType>;
+    }
+  >
+) => {
+  return Component;
+};
+
+type WithModalComponent<T> = T extends React.FunctionComponent<infer Props>
+  ? Props extends { modal: ModalPropsType<any> }
+    ? T
+    : never
+  : never;
+
+interface ModalManagerState {
+  stack: {
+    id: string;
+    component: React.FunctionComponent;
+    props: any;
+    resolve: (value: unknown) => void;
+    option?: {
+      closeOnOutsideClick?: boolean;
+    };
+  }[];
+}
+
+const initialModalState: ModalManagerState = {
+  stack: [],
+};
+
+type GetSubmitType<T extends React.FunctionComponent<any>> = Parameters<
+  Pick<React.ComponentProps<T>, "modal">["modal"]["submit"]
+>[0];
+
+type ModalOpenOptionType = ModalManagerState["stack"][number]["option"];
+
+export const useModalState = create(
+  immer(
+    combine(initialModalState, (set, get) => {
+      const closeModal = (id: string) => {
+        const foundModal = get().stack.find((v) => v.id === id);
+        if (!foundModal) throw new Error(foundModal);
+
+        foundModal.resolve(null);
+        set((state) => {
+          state.stack = state.stack.filter((v) => v.id !== id);
+        });
+      };
+
+      const submitModal = (id: string, payload: any) => {
+        const foundModal = get().stack.find((v) => v.id === id);
+        if (!foundModal) throw new Error(foundModal);
+
+        foundModal.resolve(payload);
+        set((state) => {
+          state.stack = state.stack.filter((v) => v.id !== id);
+        });
+      };
+
+      return {
+        actions: {
+          openModal: <T extends React.FunctionComponent<any>>(
+            ModalComponent: WithModalComponent<T>,
+            props: Omit<React.ComponentProps<T>, "modal">,
+            option?: ModalOpenOptionType
+          ) => {
+            return new Promise<GetSubmitType<T>>((resolve) => {
+              const id = nanoid();
+              set((state) => {
+                state.stack.push({
+                  id,
+                  component: ModalComponent,
+                  props,
+                  resolve,
+                  option,
+                });
+              });
+            });
+          },
+          closeModal,
+          submitModal,
+          getModalProps: (id: string) => {
+            return {
+              close: () => {
+                closeModal(id);
+              },
+              submit: (data: any) => {
+                submitModal(id, data);
+              },
+            };
+          },
+        },
+      };
+    })
+  )
+);
+```
+
+눈여겨볼 부분은 모달을 여는 함수입니다.
+
+첫번째 인자로 받는 리액트 컴포넌트(`ModalComponent`)의 타입을 제네릭 `<T>`로 받습니다. 이후 2번째 인자로 컴포넌트의 props를 받습니다.
+
+이를 위해 타입스크립트로 `React.ComponentProps<T>`로 컴포넌트의 props 타입만 추출한 후, `modal`키를 제거합니다. (이는 모달을 렌더링할 때 주입해주는 모달 제어 메소드 입니다)
+
+이후 반환되는 프로미스 타입은 props의 `modal.submit()` 함수의 인자 값을 추출해서 가져옵니다. `modal` 타입은 이후 서술하는 `modalFactory` 함수를 통해서 지정할 수 있습니다.
+
+## Props와 결과의 타입을 지정할 수 있는 모달 만들기 (Modal Component (with modalFactory))
+
+모달을 띄우기 위해서는 해당 컴포넌트가 어떤 props를 필요로 하는지 알아야 합니다. 이는 다음 세 가지 유형으로 나눌 수 있습니다.
+
+1. 모달 내부에서 훅이나 전역 상태로 가져오는 데이터
+
+2. 외부에서 props로 넘겨야 하는 데이터
+
+3. 모달 시스템이 주입하는 제어용 메소드 (close, submit 등)
+
+1번은 컴포넌트 내부에서 해결되므로 신경 쓸 필요가 없습니다.
+
+필요한 타입은 2번입니다. 외부에서 모달을 호출할 때 필요한 props가 무엇인지 타입으로 추론할 수 있어야 합니다.
+
+또 하나 중요한 점은 3번 즉, submit 함수에서 전달받는 인자의 타입도 외부에서 알 수 있어야 한다는 것입니다. 하지만 JSX를 반환하는 일반적인 컴포넌트에서는 내부 함수의 인자 타입을 외부에서 추론하기 어렵습니다.
+
+이 문제를 해결하기 위해 모달을 선언할 때 submit의 결과 타입을 함께 명시하도록 설계했습니다.
+
+모달 선언시 불필요한 코드를 줄일 수 있도록 위해 아래와 같은 유틸 함수를 만들었습니다.
+
+```ts
+export const modalFactory = <InputType, OutputType>(
+  Component: React.FunctionComponent<
+    InputType & {
+      modal: ModalPropsType<OutputType>;
+    }
+  >
+) => {
+  return Component;
+};
+```
+
+`modalFactory`를 통해 컴포넌트를 선언하면, 컴포넌트의 props 타입과 모달 컴포넌트에서 반환할 타입을 props에 `modal`이라는 키로 넣어주게 됩니다.
+
+```tsx
+const MyModal = modalFactory<
+  {
+    // ... 모달 컴포넌트의 props
+  },
+  {
+    // ... 모달 컴포넌트에서 submit 함수에 인자로 들어갈 타입
+  }
+>(({ modal }) => <>...</>);
+```
+
+## 모달 호출 하기 (Business logic)
+
+`openModal` 함수는 다음과 같은 방식으로 동작합니다.
+
+- 어떤 모달 컴포넌트를 사용할지 인자로 받습니다.
+
+- 해당 컴포넌트의 props 타입을 자동으로 추론해, 잘못된 사용을 방지합니다.
+
+- 결과 타입 또한 자동으로 추론해, `Promise<결과>` 형태로 반환합니다.
+
+- 반환된 Promise는 모달이 닫히거나 submit될 때 resolve되며 이 로직은 zustand 스토어를 통해 저장됩니다.
+
+모달에 넘기는 props는 복사하지 않고 zustand에 그대로 저장하기 때문에 함수를 넘기면 해당 함수의 참조가 유지됩니다. 이를 활용하면 다음과 같은 방식도 가능합니다.
+
+```tsx
+const [count, setCount] = useState(0);
+const openModal = useModalState().actions.openModal;
+
+return (
+  <>
+    <p>카운트: {count}</p>
+    <Button
+      onClick={() => {
+        openModal(CountModal, {
+          onCount: () => {
+            setCount((v) => v + 1);
+          },
+        });
+      }}
+    >
+      Open Modal
+    </Button>
+  </>
+);
+```
+
+## 스토어에 있는 모달을 렌더링하기 (ModalProvider)
+
+```ts
+// ModalProvider.tsx
+
+import React, { useMemo, useRef } from "react";
+import { useModalManager } from "./useModalManager";
+import useClickAway from "@/hooks/useClickAway";
+
+interface ModalProviderProps {
+  children: React.ReactNode;
+}
+
+const ModalProvider = ({ children }: ModalProviderProps) => {
+  const topModal = useModalManager((state) => state.stack.at(-1));
+  const { getModalProps, closeModal } = useModalManager(
+    (state) => state.actions
+  );
+  const modalWrapperRef = useRef<HTMLDivElement>(null);
+
+  const TopModalComponent = useMemo(() => {
+    if (!topModal) return null;
+
+    return React.cloneElement(<topModal.component {...topModal.props} />, {
+      modal: getModalProps(topModal.id),
+    });
+  }, [topModal]);
+
+  const backgroundClassName =
+    topModal?.option?.backgroundClassName ?? DEFAULT_BACKGROUND_CLASSNAME;
+  const closeOnOutsideClick = topModal?.option?.closeOnOutsideClick ?? false;
+
+  useClickAway(modalWrapperRef, () => {
+    if (closeOnOutsideClick && !!topModal?.id) {
+      closeModal(topModal.id);
+    }
+  });
+
+  return (
+    <>
+      {!!TopModalComponent && (
+        <div className={backgroundClassName}>
+          <div ref={modalWrapperRef}>{TopModalComponent}</div>
+        </div>
+      )}
+
+      {children}
+    </>
+  );
+};
+
+export default ModalProvider;
+
+const DEFAULT_BACKGROUND_CLASSNAME =
+  "fixed inset-0 bg-[rgba(0,0,0,0.15)] flex items-center justify-center z-50 w-full h-screen";
+```
+
+구조 여러 모달이 동시에 떠야 하는 상황이나, 하나만 떠야 하는 상황 모두를 고려해, 모달은 배열 형태로 관리합니다. 저는 이 중 마지막 모달만 렌더링하는 구조로 구현했습니다.
+
+Zustand 스토어에서 .at(-1)로 마지막 모달을 가져오고, 해당 컴포넌트에 close, submit 같은 제어 함수들을 React.cloneElement로 주입합니다.
+
+이후 클론된 컴포넌트를 렌더링하며, 필요에 따라 배경 오버레이, 외부 클릭 시 닫기, body 스크롤 잠금 등의 옵션도 추가할 수 있습니다.
+
+## 정리
+
+이제 모달은 하나의 함수처럼 사용할 수 있게 되었습니다.
+모달 컴포넌트를 별도로 등록하거나, 어떤 플래그를 관리하면서 조건 분기할 필요도 없습니다.
+
+초기 회고에서 나왔던 불편함들 (복잡한 전역 상태, 타입 추론의 부재, 비즈니스 로직의 위치 모호성)을 깔끔하게 해결할 수 있었고, 동시에 타입 안전성과 유지보수성도 확보할 수 있었습니다.

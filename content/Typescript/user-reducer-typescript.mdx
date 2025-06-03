@@ -1,0 +1,374 @@
+---
+title: "useReducer 메소드 타입 자동으로 추론하기"
+tags: ["useReducer", "typescript"]
+date: "2024/10/12"
+description: "useReducer 훅 메소드 타입을 자동으로 추론하는 방법에 대해 고민해봤습니다."
+---
+
+`useReducer` + `useContext` 조합으로 하위 컴포넌트의 상태를 관리하는 방법을 종종 사용하곤 합니다.
+
+전역 상태로 관리할건 아니지만, 하위 컴포넌트가 많고 구조가 복잡한 컴포넌트를 개발할 때 좋은 것 같습니다.
+
+하지만 불편한 점이 있는데요, 바로 타입을 직접 입력해줘야 합니다.
+
+## useReducer 타입스크립트 예시
+
+```tsx showLineNumbers {23-29, 44}
+import { useEffect, useReducer } from "react";
+
+// State 타입 정의
+type Address = {
+  street: string;
+  city: string;
+  postalCode: string;
+};
+
+type Contact = {
+  type: string;
+  value: string;
+};
+
+type State = {
+  name: string;
+  age: number;
+  address: Address;
+  contacts: Contact[];
+};
+
+// Action 타입 정의
+type Action =
+  | { type: "SET_NAME"; payload: string }
+  | { type: "SET_AGE"; payload: number }
+  | { type: "SET_ADDRESS"; payload: Partial<Address> }
+  | { type: "ADD_CONTACT"; payload: Contact }
+  | { type: "UPDATE_CONTACT"; index: number; payload: Partial<Contact> }
+  | { type: "REMOVE_CONTACT"; index: number }
+
+// 초기 상태 정의
+const initialState: State = {
+  name: "",
+  age: 0,
+  address: {
+    street: "",
+    city: "",
+    postalCode: "",
+  },
+  contacts: [],
+};
+
+// Reducer 함수 정의
+const reducer = (state: State, action: Action): State => {
+  switch (action.type) {
+    case "SET_NAME":
+      return { ...state, name: action.payload };
+    case "SET_AGE":
+      return { ...state, age: action.payload };
+    case "SET_ADDRESS":
+      return {
+        ...state,
+        address: { ...state.address, ...action.payload },
+      };
+    case "ADD_CONTACT":
+      return { ...state, contacts: [...state.contacts, action.payload] };
+    case "UPDATE_CONTACT":
+      return {
+        ...state,
+        contacts: state.contacts.map((contact, index) =>
+          index === action.index ? { ...contact, ...action.payload } : contact
+        ),
+      };
+    case "REMOVE_CONTACT":
+      return {
+        ...state,
+        contacts: state.contacts.filter((_, index) => index !== action.index),
+      };
+    default:
+      throw new Error("Unhandled action type");
+  }
+};
+
+// 컴포넌트 정의
+const PersonalInfoForm = () => {
+  const [state, dispatch] = useReducer(reducer, initialState);
+```
+
+공통으로 사용할 인터페이스를 만들어서 사용하는게 아니라면, 개인적으로 구현과 타입이 분리되는 형태는 선호하지 않습니다. 유지보수 관점에서 확인하고 수정해줘야 하는 영역이 이분화되어 번거롭더라고요.
+
+이를 개선하기 위해서 `zustand`를 사용하는 것 처럼 객체로 메소드를 정의해 넘기면, 타입을 자동으로 추론할 수 있는 유틸 함수를 만들어봤습니다.
+
+## useReducer 메소드 타입 추론 유틸함수 만들기
+
+```ts showLineNumbers {2,4-6,11-16}
+export const reducerFactory =
+  <State extends object>() =>
+  <
+    T extends Record<
+      string,
+      (state: State, payload?: any) => State | Partial<State>
+    >
+  >(
+    functions: T
+  ) => {
+    type Action = {
+      [K in keyof T]: Parameters<T[K]>[1] extends undefined
+        ? { type: K } // payload가 없으면 payload 키를 제외
+        : { type: K; payload: Parameters<T[K]>[1] }; // payload가 있으면 payload 키를 필수로 추가
+    }[keyof T];
+
+    return (state: State, action: Action) => {
+      const handler = functions[action.type];
+      if ("payload" in action) {
+        return {
+          ...state,
+          ...handler(state, action.payload),
+        } as State;
+      } else {
+        return {
+          ...state,
+          ...handler(state),
+        } as State;
+      }
+    };
+  };
+
+export default reducerFactory;
+```
+
+이를 구현하기 위해서는 2가지의 제네릭 타입을 인자로 받아야 합니다. 상태의 타입과 메소드의 타입이 필요한데요, 상태의 타입은 개발자가 지정하고, 메소드의 타입은 자동으로 추론되도록 해야 합니다.
+
+타입스크립트에서는 2개의 제네릭 타입을 받을 때, 하나는 명시적으로 입력받고 하나는 추론하는게 불가능해서 커링을 사용했습니다.
+
+이를 통해 `reducerFactory<StateType>(method)` 형태로 호출 해 메소드를 객체로 묶어 인자로 넘길 수 있습니다. 메소드의 타입은 첫번째 인자에 타입을, 두번째 인자에 메소드에서 사용할 파라미터로 입력받도록 고정시켰습니다. 복수의 인자로 입력을 받아야 할 때는 객체나 배열로 입력받을 수 있습니다.
+
+함수 내부에서는 메소드의 이름 (`keyof T`)을 useReducer에서 사용할 `type`으로 만들고, 함수의 파라미터 타입을 추론합니다. payload가 있는 경우에는 payload에 대한 타입을 추가해줍니다.
+
+이후 `useReducer` 훅의 인자로 넣을 함수를 만들어주는데요, 내부적으로 현재 상태와 메소드의 실행 결과를 합쳐서 메소드에서 반환할 키만 반환해도 상태를 업데이트 할 수 있도록 설계했습니다.
+
+## reducerFactory 사용 예시
+
+```tsx showLineNumbers {35-73}
+import { useEffect, useReducer } from "react";
+import { reducerFactory } from "./f";
+
+// State 타입 정의
+type Address = {
+  street: string;
+  city: string;
+  postalCode: string;
+};
+
+type Contact = {
+  type: string;
+  value: string;
+};
+
+type State = {
+  name: string;
+  age: number;
+  address: Address;
+  contacts: Contact[];
+};
+
+// 초기 상태 정의
+const initialState: State = {
+  name: "",
+  age: 0,
+  address: {
+    street: "",
+    city: "",
+    postalCode: "",
+  },
+  contacts: [],
+};
+
+const reducer = reducerFactory<State>()({
+  SET_NAME: (state, payload: string) => {
+    return { name: payload };
+  },
+  SET_AGE: (state, payload: number) => {
+    return { age: payload };
+  },
+  SET_ADDRESS: (state, payload: Partial<State["address"]>) => {
+    return {
+      address: {
+        ...state.address,
+        ...payload,
+      },
+    };
+  },
+  ADD_CONTACT: (state, payload: Contact) => {
+    return {
+      contacts: [...state.contacts, payload],
+    };
+  },
+  UPDATE_CONTACT: (
+    state,
+    payload: {
+      index: number;
+      contact: Partial<Contact>;
+    }
+  ) => {
+    return {
+      contacts: state.contacts.map((contact, index) =>
+        index === index ? { ...contact, ...payload } : contact
+      ),
+    };
+  },
+  REMOVE_CONTACT: (state, index: number) => {
+    return {
+      contacts: state.contacts.filter((_, index) => index !== index),
+    };
+  },
+});
+
+// 컴포넌트 정의
+const PersonalInfoForm = () => {
+  const [state, dispatch] = useReducer(reducer, initialState);
+
+  useEffect(() => {
+    console.log(state);
+  }, [state]);
+
+  return (
+    <div>
+      <h2>Personal Information</h2>
+
+      <label>
+        Name:
+        <input
+          type="text"
+          value={state.name}
+          onChange={(e) =>
+            dispatch({ type: "SET_NAME", payload: e.target.value })
+          }
+        />
+      </label>
+
+      <label>
+        Age:
+        <input
+          type="number"
+          value={state.age}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_AGE",
+              payload: parseInt(e.target.value, 10) || 0,
+            })
+          }
+        />
+      </label>
+
+      <h3>Address</h3>
+      <label>
+        Street:
+        <input
+          type="text"
+          value={state.address.street}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_ADDRESS",
+              payload: { street: e.target.value },
+            })
+          }
+        />
+      </label>
+      <label>
+        City:
+        <input
+          type="text"
+          value={state.address.city}
+          onChange={(e) =>
+            dispatch({ type: "SET_ADDRESS", payload: { city: e.target.value } })
+          }
+        />
+      </label>
+      <label>
+        Postal Code:
+        <input
+          type="text"
+          value={state.address.postalCode}
+          onChange={(e) =>
+            dispatch({
+              type: "SET_ADDRESS",
+              payload: { postalCode: e.target.value },
+            })
+          }
+        />
+      </label>
+
+      <h3>Contacts</h3>
+      {state.contacts.map((contact, index) => (
+        <div key={index}>
+          <input
+            type="text"
+            placeholder="Type"
+            value={contact.type}
+            onChange={(e) =>
+              dispatch({
+                type: "UPDATE_CONTACT",
+                payload: {
+                  index,
+                  contact: {
+                    type: e.target.value,
+                  },
+                },
+              })
+            }
+          />
+          <input
+            type="text"
+            placeholder="Value"
+            value={contact.value}
+            onChange={(e) =>
+              dispatch({
+                type: "UPDATE_CONTACT",
+                payload: {
+                  index,
+                  contact: {
+                    value: e.target.value,
+                  },
+                },
+              })
+            }
+          />
+          <button
+            onClick={() => dispatch({ type: "REMOVE_CONTACT", payload: index })}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={() =>
+          dispatch({ type: "ADD_CONTACT", payload: { type: "", value: "" } })
+        }
+      >
+        Add Contact
+      </button>
+    </div>
+  );
+};
+
+export default PersonalInfoForm;
+```
+
+기존 코드와 동일한 로직이며, 타입을 직접 선언하지 않고 reducerFactory 함수에 인자를 하나 받는 형태로 수정했습니다.
+
+![type 타입 추론 예시](/images/useReducer-typescript-1.png)
+
+![type에 따른 함수 인자 타입 추론](/images/useReducer-typescript-2.png)
+
+의도한 대로 `dispatch` 함수 실행 시, 각 메소드에 맞는 인자의 타입을 추론할 수 있습니다.
+
+## dispatch 타입 추론
+
+만들어진 reducer 함수를 사용하는 `dispatch` 함수의 타입을 추론하기 위해서는 `Dispatch<ReducerAction<T>>`로 사용할 수 있습니다. context api에 dispatch 함수를 넘길때 유용합니다.
+
+```tsx showLineNumbers
+const reducer = reducerFactory<State>()({
+  ...
+})
+
+import { Dispatch, ReducerAction } from "react";
+type DispatchFn = Dispatch<ReducerAction<typeof reducer>>;
+```

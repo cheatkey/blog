@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=resizes-content">
+  <title>VirtualKeyboard 시각화 개선</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .keyboard-padding {
+      padding-bottom: env(keyboard-inset-height, 0px);
+    }
+  </style>
+</head>
+<body class="bg-gray-100 font-mono text-sm">
+
+  <!-- layout viewport (화면 전체 + 스크롤 영역 포함) -->
+  <div id="layoutBox" class="absolute top-0 left-0 w-full bg-blue-100 border-4 border-blue-500 overflow-auto z-0">
+
+    <!-- visual viewport 시각화 -->
+    <div id="visualBox" class="absolute border-4 border-red-500 bg-red-100 text-xs text-red-800 p-1 z-10">
+      visual viewport
+    </div>
+
+    <!-- UI 카드 -->
+    <div class="m-4 p-4 space-y-3 bg-white shadow rounded z-20 relative">
+      <h1 class="text-xl font-bold">Virtual Keyboard</h1>
+
+      <input id="keyboardInput" class="border w-full mt-2 p-2 rounded" placeholder="포커스하면 키보드가 열립니다." />
+
+      <div class="flex flex-wrap gap-2 mt-2">
+        <button id="toggleOverlay" class="bg-indigo-600 text-white px-3 py-1 rounded">
+          🔄 overlaysContent 토글
+        </button>
+        <button id="togglePadding" class="bg-teal-600 text-white px-3 py-1 rounded">
+          🔧 keyboard-padding 토글
+        </button>
+      </div>
+
+      <div class="space-y-1 mt-2">
+        <div>📐 <strong>Layout viewport:</strong> <span id="layoutSize">-</span></div>
+        <div>📏 <strong>Visual viewport:</strong> <span id="visualSize">-</span></div>
+        <div>🔍 <strong>VirtualKeyboard 상태:</strong> <span id="vkStatus">-</span></div>
+        <div>📐 <strong>keyboard boundingRect.height:</strong> <span id="insetHeight">-</span></div>
+      </div>
+
+      <div class="mt-4 border-t pt-2 text-sm text-gray-700 space-y-1">
+        <div>🛠 <strong>overlaysContent:</strong> <span id="stateOverlay">-</span></div>
+        <div>🧩 <strong>keyboard-padding 적용:</strong> <span id="statePadding">-</span></div>
+      </div>
+    </div>
+
+    <!-- keyboard-inset-height 적용된 하단 고정 UI -->
+    <div id="bottomPanel" class="fixed bottom-0 left-0 w-full bg-white shadow z-20 keyboard-padding border-t border-gray-300">
+      <div class="p-4 text-center text-sm">
+        🧩 fixed bottom-0
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const layoutBox = document.getElementById("layoutBox");
+    const layoutSize = document.getElementById("layoutSize");
+    const visualSize = document.getElementById("visualSize");
+    const vkStatus = document.getElementById("vkStatus");
+    const insetHeight = document.getElementById("insetHeight");
+    const visualBox = document.getElementById("visualBox");
+    const keyboardInput = document.getElementById("keyboardInput");
+    const toggleOverlay = document.getElementById("toggleOverlay");
+    const togglePadding = document.getElementById("togglePadding");
+    const bottomPanel = document.getElementById("bottomPanel");
+    const stateOverlay = document.getElementById("stateOverlay");
+    const statePadding = document.getElementById("statePadding");
+
+    let overlaysState = false;
+    let paddingState = true;
+
+    const updateStates = () => {
+      stateOverlay.textContent = overlaysState ? '✅ 켜짐' : '❌ 꺼짐';
+      statePadding.textContent = paddingState ? '✅ 적용됨' : '❌ 해제됨';
+    };
+
+    const updateSizes = () => {
+      const lw = window.innerWidth;
+      const lh = window.innerHeight;
+      layoutBox.style.height = `${lh}px`;
+      layoutSize.textContent = `${lw}px × ${lh}px`;
+
+      if (window.visualViewport) {
+        const vw = window.visualViewport.width;
+        const vh = window.visualViewport.height;
+        visualSize.textContent = `${vw.toFixed(0)}px × ${vh.toFixed(0)}px`;
+
+        visualBox.style.width = `${vw}px`;
+        visualBox.style.height = `${vh}px`;
+        visualBox.style.left = `${window.visualViewport.offsetLeft}px`;
+        visualBox.style.top = `${window.visualViewport.offsetTop}px`;
+      }
+
+      if ("virtualKeyboard" in navigator && navigator.virtualKeyboard.boundingRect) {
+        const height = navigator.virtualKeyboard.boundingRect.height;
+        insetHeight.textContent = `${height}px`;
+      } else {
+        insetHeight.textContent = '0px';
+      }
+
+      updateStates();
+    };
+
+    const updateVkStatus = () => {
+      if ("virtualKeyboard" in navigator) {
+        overlaysState = navigator.virtualKeyboard.overlaysContent;
+        vkStatus.textContent = `지원됨 (overlaysContent: ${overlaysState ? '✅ 켜짐' : '❌ 꺼짐'})`;
+      } else {
+        vkStatus.textContent = "❌ VirtualKeyboard API 미지원";
+      }
+      updateStates();
+    };
+
+    const init = () => {
+      if ("virtualKeyboard" in navigator) {
+        navigator.virtualKeyboard.overlaysContent = true;
+        overlaysState = true;
+        navigator.virtualKeyboard.addEventListener("geometrychange", updateSizes);
+      }
+      updateSizes();
+      updateVkStatus();
+    };
+
+    toggleOverlay.addEventListener("click", () => {
+      if ("virtualKeyboard" in navigator) {
+        overlaysState = !overlaysState;
+        navigator.virtualKeyboard.overlaysContent = overlaysState;
+        updateVkStatus();
+      } else {
+        alert("VirtualKeyboard API 미지원");
+      }
+    });
+
+    togglePadding.addEventListener("click", () => {
+      paddingState = !paddingState;
+      bottomPanel.classList.toggle("keyboard-padding", paddingState);
+      updateStates();
+    });
+
+    window.visualViewport?.addEventListener("resize", updateSizes);
+    window.addEventListener("resize", updateSizes);
+    window.addEventListener("load", init);
+  </script>
+</body>
+</html>

@@ -1,0 +1,105 @@
+---
+title: "beautiful mermaid 메이크로그"
+tags: ["make-log", "메이크로그", "react"]
+date: "2024/02/27"
+description: "mermaid를 사용해서 다이어그램이나 플로우차트를 예쁘게 그리는 프로젝트"
+---
+
+## 다이어그램 그리기 좋은 도구, mermaid
+
+문서를 작성할 때 도식도를 작성하거나, 데이터의 흐름등을 표현할 때 mermaid를 사용하곤 합니다.
+
+notion에서 mermaid를 지원해서 사용하다보면 은근 편합니다.
+
+flow, sequence, class, gantt 등 지원하는 차트의 종류도 다양합니다.
+
+[mermaid live](https://mermaid.live/) 에서 바로 사용해보실 수 있습니다.
+
+## 하지만 제한적인 디자인
+
+하지만 [mermaid에서 제공하는 테마](https://mermaid.js.org/config/theming.html)가 다소 제한적이라, 사용할 때 마다 조금 아쉬움이 남곤 했습니다.
+
+mermaid에서 제공하는 `themeCSS` 옵션으로 CSS를 수정해서 사용해보려고 했는데, 다이어그램의 요소의 모양을 직접 변경하려면 svg HTML 태그를 직접 수정해야 한다는 사실을 알게 되어, 좀 더 규모를 키워서 프로젝트를 만들었습니다.
+
+## beautiful mermaid 로 그린 플로우 차트
+
+왼쪽 이미지는 mermaid에서 기본적으로 제공하는 light theme로,
+
+우측은 beautiful mermaid 를 사용해서 그린 플로우 차트입니다.
+
+[Beautiful Mermaid](https://beautiful-mermaid.vercel.app/) 에서 사용해보실 수 있습니다.
+
+![flowchart 디자인 (기본 테마 vs beautiful mermaid)](/images/mermaid-compare.png)
+
+전체적으로 디자인을 하얗고, 둥글게 변경했고, 색상을 제거한 만큼 보기 쉽도록 쉐도우를 넣었습니다.
+
+![sequence 디자인 (기본 테마 vs beautiful mermaid)](/images/meramid-compare-2.png)
+
+flowchart 뿐 아니라 sequence chart도 비슷한 룩앤삘로 만들었습니다.
+
+## 개발하기
+
+디자인 변경 중 일부는 CSS로, 일부는 SVG를 수정하는 방식을 사용했습니다.
+
+폰트의 색상이나, 크기, 노드의 색상 등 mermaid의 옵션 중 `themeCSS`으로 css를 커스터마이징 할 수 있습니다.
+
+```ts showLineNumbers
+// css
+.nodeLabel {
+  color: #424242;
+  font-size: 16px;
+  padding: 5px 10px;
+}
+
+.edgeLabel {
+  font-weight: 600;
+  color: #424242;
+  border: 2px solid #cdcdcd;
+  padding: 1px 5px;
+}
+
+// typescript
+mermaid.initialize({
+    theme: "neutral",
+    fontFamily: "Pretendard Variable",
+    themeCSS: mermaidCSS,
+});
+```
+
+SVG를 수정할 때는 render API를 사용하여 다이어그램 SVG 문자열을 얻었고,
+
+```ts showLineNumbers
+const { svg } = await mermaid.render("mermaidid", mermaidString);
+```
+
+얻은 SVG 문자열을 `DOMParser`로 파싱하고, 이를 통해 다양한 시각적 효과를 SVG 요소에 직접 적용합니다.
+
+```ts showLineNumbers
+const parser = new DOMParser();
+
+const doc = parser.parseFromString(svgString, "text/html");
+const svg = doc.body.querySelector("svg");
+```
+
+노드의 모서리를 둥글게 만드는 코드의 경우, svg의 rect는 border radius가 작동하지 않기 때문에, 관련 속성인 rx,ry를 설정해주어야 합니다.
+
+```ts showLineNumbers
+[...this.svg.querySelectorAll(".basic.label-container")].forEach((rect) => {
+  rect.setAttribute("rx", "10");
+  rect.setAttribute("ry", "10");
+});
+```
+
+추가로, 기존 meramid에는 없는 특정 노드를 하이라이팅 하는 기능을 추가했습니다.
+
+flowchart의 흐름 중 강조하고 싶은 노드가 있을 때 사용할 수 있습니다.
+
+Node highlight 하단의 textarea에 강조할 텍스트를 적으면, 매칭되는 노드를 찾아 하이라이팅 해줍니다.
+
+![노드 하이라이팅](/images/mermaid-text-match.png)
+
+## 결론
+
+- meramid는 다이어그램을 그리기 위한 좋은 툴입니다 (마크다운 편집기와 궁합이 잘 맞아서 편합니다)
+- 제공되는 디자인은 제한적이라, 새로운 디자인 스타일을 meramid에 적용하는 프로젝트를 개발했습니다.
+- URL은 https://beautiful-mermaid.vercel.app/ 입니다.

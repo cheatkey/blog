@@ -1,0 +1,181 @@
+---
+title: "ARIA를 사용해 접근성을 향상 시키기"
+tags: ["a11y"]
+date: "2024/02/27"
+description: "aria를 사용하여 마크업으로는 표현할 수 없는 정보를 표현하는 방법에 대해 알아봅니다."
+---
+
+> "접근성 개선" 시리즈로 작성된 4번째 글입니다.
+
+![예제](/images/series-a11y.png)
+
+시각적으로는 의미를 전달할 수 있지만, HTML 마크업 만으로는 스크린 리더기에 충분한 정보를 알려줄 수 없을 때가 있습니다.
+
+이런 경우, WAI-ARIA (Web Accessibility Initiative-Accessible Rich Internet Applications)를 추가해 추가적인 정보를 제공하고, 접근성을 올릴 수 있습니다.
+
+마크업 요소의 속성이나 상태를 의미하는 `aria`와 역할을 의미하는 `role`을 지정할 수 있는데요, 먼저 `aria`부터 알아보겠습니다.
+
+## 1. ARIA란 무엇인가?
+
+ARIA는 "Accessible Rich Internet Applications"의 약자로, 웹 콘텐츠 및 웹 애플리케이션의 접근성을 개선하기 위한 기술입니다. 스크린 리더와 같은 보조 기술이 웹 콘텐츠를 보다 쉽게 이용할 수 있도록 도와줍니다.
+
+[Accessible Rich Internet Applications (WAI-ARIA) 1.2](https://www.w3.org/TR/wai-aria/) 에서 자세한 스펙을 확인하실 수 있습니다.
+
+## 2. 가능한 경우 ARIA 대신 시멘틱 마크업 사용하기
+
+ARIA를 사용하기 전에 시멘틱 마크업(HTML5의 시멘틱 요소)을 사용하는 것이 더 좋습니다. 시멘틱 마크업은 이미 용도에 맞도록 만들어져서, 추가적인 처리 없이도 접근성을 좋게 만들어줍니다.
+
+## 3. ARIA 주요 속성들
+
+ARIA에는 많은 속성이 있으며 모든 속성을 알 필요는 없습니다. 주요 속성들만 이해하고 적절히 사용하는 것만으로도 접근성을 크게 향상시킬 수 있습니다.
+
+- 일반적으로 많이 사용하는 속성들
+
+  - `aria-label`: 스크린 리더가 읽을 수 있도록 요소에 대한 간결한 레이블을 제공합니다.
+  - `aria-labelledby`: 다른 요소의 ID를 참조하여 레이블을 제공하고, 여러 요소의 텍스트를 조합하여 레이블을 생성합니다.
+  - `aria-describedby`: 다른 요소의 ID를 참조하여 설명을 제공하고, 요소의 추가 정보를 제공합니다.
+  - `aria-hidden`: 요소를 스크린 리더에서 숨기고 보조기술이 읽지 않도록 합니다.
+
+- 특정 컴포넌트를 개발할 때 사용하는 속성들
+  - `aria-live`: 동적 콘텐츠 업데이트를 알리며, 화면 리더가 자동으로 업데이트된 내용을 읽어줍니다.
+  - `aria-expanded`: 요소가 확장되었는지 여부를 나타내고, 주로 아코디언이나 드롭다운 메뉴에 사용됩니다.
+  - ...
+
+## 4. ARIA 주요 속성들 사용해보기
+
+### 4.1 aria-label, aria-labelledby, aria-describedby 예시
+
+```tsx showLineNumbers
+<button aria-label="닫기">X</button>
+
+<h2 id="section1">프로젝트 소개</h2>
+<div aria-labelledby="section1">
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
+tempor incididunt ut labore et dolore magna aliqua.
+</div>
+
+<button aria-describedby="description">정보</button>
+<p id="description">
+이 버튼을 클릭하면 프로젝트에 대한 자세한 정보를 볼 수 있습니다.
+</p>
+
+<div aria-hidden="true">
+    <p>장식용 내용</p>
+</div>
+```
+
+위 코드를 ARIA 속성을 사용하지 않았을 때와 사용했을 때의 접근성 트리를 비교해서 살펴보겠습니다.
+
+- ARIA 속성을 사용하지 않았을 때는 버튼의 텍스트인 X가 보여지고, 로렘입숨이 입력된 프로젝트 소개 div에는 텍스트 내용이 그대로 보여집니다.
+
+![aria 속성을 사용하지 않았을 때 접근성 트리](/images/a11y-aria-2.png)
+
+- ARIA 속성을 사용했을 때는 버튼의 텍스트 X 대신 "닫기"로, 로렘입숨이 입력된 프로젝트 소개 div도 "프로젝트 소개"로 label이 설정 되었고, 장식용 내용은 아예 접근성 트리에서 보이지 않습니다.
+
+![예제](/images/a11y-aria-1.png)
+
+### 4.2 aria-live
+
+실시간으로 변하는 텍스트를 스크린 리더기가 읽도록 하는 속성입니다.
+
+버튼을 누를때마다 카운트를 올리고, "N번째 메시지가 도착했습니다"를 출력하는 예제입니다.
+
+```tsx showLineNumbers {14}
+const [count, setCount] = useState(0);
+const [message, setMessage] = useState("");
+
+const handleNewMessage = () => {
+  const nextCount = count + 1;
+  setMessage(`${nextCount}번째 메시지가 도착했습니다.`);
+  setCount(nextCount);
+};
+
+return (
+  <main className="p-10">
+    <div className="flex flex-col gap-4 ...">
+      <button onClick={handleNewMessage}>새 메시지 받기</button>
+      <div aria-live="polite">{message}</div>
+    </div>
+  </main>
+);
+```
+
+`aria-live="polite"`를 지정하지 않고 `NVDA` 스크린 리더기를 사용해보면 버튼을 여러번 눌러도 메시지의 내용을 읽어주지 않습니다.
+
+```text showLineNumbers
+새 메시지 받기
+(버튼 클릭)
+클릭 가능  주요 내용 랜드마크    새 메시지 받기  버튼
+(버튼 클릭)
+```
+
+반면 `aria-live="polite"`를 적용하면 아래처럼 변경되는 텍스트를 읽어줍니다.
+
+```text showLineNumbers
+새 메시지 받기
+(버튼 클릭)
+클릭 가능  새 메시지 받기  버튼
+1번째 메시지가 도착했습니다.
+(버튼 클릭)
+2번째 메시지가 도착했습니다.
+(버튼 클릭)
+3번째 메시지가 도착했습니다.
+(버튼 클릭)
+4번째 메시지가 도착했습니다.
+(버튼 클릭)
+5번째 메시지가 도착했습니다.
+```
+
+### 4.3 aria-expanded
+
+내용을 접고/ 펼칠 수 있는 UI 예제입니다.
+
+```tsx showLineNumbers
+const [isExpanded, setIsExpanded] = useState(true);
+
+const toggleExpansion = () => setIsExpanded(!isExpanded);
+
+return (
+  <div className="p-10">
+    <button aria-expanded={isExpanded} onClick={toggleExpansion}>
+      {isExpanded ? "접기" : "펼치기"}
+    </button>
+    {isExpanded && (
+      <div className="mt-4 p-4">
+        Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod
+        tempor incididunt ut labore et dolore magna aliqua.
+      </div>
+    )}
+  </div>
+);
+```
+
+![내용을 접고/ 펼칠 때 aria-expanded 지정](/images/a11y-aria-3.png)
+
+ARIA를 지정하지 않은 경우 `NVDA` 스크린 리더기 사용 시, 아래처럼 버튼의 이름을 한번만 읽어줍니다.
+
+```text showLineNumbers
+클릭 가능 접기 버튼
+(버튼 클릭)
+(버튼 클릭)
+(버튼 클릭)
+```
+
+시각적으로는 버튼을 눌러 텍스트를 보이도록, 보이지 않도록 설정할 수 있다는걸 알 수 있지만 스크린 리더기에서는 이를 알 수 없어 버튼의 이름을 한번만 읽어줍니다.
+
+반면 `aria-expanded` 속성을 같이 지정해주면 아래와 같이 축소됨, 확장됨이라는 명확한 의미를 읽어줍니다.
+
+```text showLineNumbers
+(버튼 클릭)
+축소됨
+(버튼 클릭)
+확장됨
+(버튼 클릭)
+축소됨
+(버튼 클릭)
+확장됨
+```
+
+예시처럼 컴포넌트에 따라 필요한 필요한 `aria` 속성이 다릅니다.
+
+어떤 컴포넌트를 개발할 때 어떤 `aria`를 사용해야 하는지는 후술할 "UI 컴포넌트 개발전 접근성 항목 확인하기"를 봐주세요.

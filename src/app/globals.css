@@ -1,0 +1,18 @@
+article p {
+  word-break: keep-all;
+}
+
+article img {
+  border-radius: 8px;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+  box-shadow: rgba(149, 157, 165, 0.2) 0px 8px 24px;
+}
+.dark article img {
+  box-shadow: none;
+}
+
+html, body {
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+}

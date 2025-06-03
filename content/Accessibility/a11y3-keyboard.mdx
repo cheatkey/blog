@@ -1,0 +1,197 @@
+---
+title: "키보드 접근성 향상 시키기"
+tags: ["a11y"]
+date: "2024/02/27"
+description: "키보드를 사용하여 웹을 탐색하는 경우, 접근성을 향상 시키는 방법에 대해 알아봅니다."
+---
+
+> "접근성 개선" 시리즈로 작성된 3번째 글입니다.
+
+![예제](/images/series-a11y.png)
+
+일반적으로 시멘틱 태그를 사용해서
+마크업을 작성했다면, 추가적인 처리가 없어도 키보드 사용에 큰 문제가 없습니다.
+
+하지만 특정한 UX를 개발할 때는 키보드 접근에 대해 처리가 필요한데요, 관련 속성들에 대해 먼저 알아보겠습니다.
+
+## 1. `tabindex` 속성 알아보기
+
+링크, 버튼, 폼 요소 등은 사용자와 인터렉션을 목적으로 하기 때문에 기본적으로 포커스를 받을 수 있고, `div`, `span`, `p` 등은 주로 시각적인 요소나 텍스트 요소로 사용되기 때문에 기본적으로 포커스 되지 않습니다.
+
+- **기본적으로 포커싱 가능한 요소**:
+  - `<a>`
+  - `<button>`
+  - `<input>`
+  - `<select>`
+  - `<textarea>`
+- **기본적으로 포커싱 불가능한 요소**:
+  - `<div>`
+  - `<span>`
+  - `<p>`
+  - `<img>`
+
+![키보드 (Tab) 접근 예제](/images/example-thumbnail-keyboard.png)
+
+[키보드 (Tab) 접근 stackblitz 예제](https://stackblitz.com/~/github.com/cheatkey/a11y-lab?file=src/pages/keyboard/focusable.tsx&initialPath=/keyboard/focusable)에서 확인해보실 수 있습니다.
+
+키보드 포커싱을 가능하게/ 불가능하게 설정하거나, 키보드 포커싱의 순서를 설정해야
+할 때 `tabindex`를 사용해 HTML 요소에 키보드 포커싱이 가능하게 할지, 순서는
+어떻게 할지 지정할 수 있습니다.
+
+- `tabindex="0"`: 요소가 키보드 탭 순서에 포함됩니다. (포커싱 가능)
+- `tabindex="-1"`: 요소가 키보드 탭 순서에 포함되지 않습니다. (포커싱 불가능, 키보드가 아닌 자바스크립트로 포커싱 하는건 가능합니다.)
+- `tabindex="1"` 이상: 요소가 지정된 순서에 따라 포커스를 받습니다.
+
+만약 클릭 등 사용자와 인터렉션 해야 하는 요소가 기본적으로 포커싱이 불가능한 요소로 작성되었다면, tabindex를 설정해 키보드 포커싱을 가능하게 만들 수 있습니다.
+
+가령 다음 페이지로 이동할 수 있는 버튼이 아이콘을 보여주는 `img`으로 마크업 되었다면, `tabindex` 속성을 사용해 다음과 같이 포커스를 받을 수 없는 요소도 포커스를 받을 수 있게 만들 수 있습니다.
+
+물론 마크업을 작성할 때 사용 목적에 맞게 `button` 등 시멘틱 마크업을 사용하는게 가장 좋습니다.
+
+```tsx showLineNumbers {3-9}
+<img
+  onClick={goToNextStep}
+  tabIndex={0}
+  onKeyDown={(e) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      goToNextStep();
+    }
+  }}
+  src={arrow}
+  alt="다음 페이지로 이동"
+/>
+```
+
+## 2. 포커싱 시 시각적 피드백 주기
+
+웹 접근성을 저해하는 대표적인 예로, 스타일링을 위해 outline을 보이지 않게 `:focus { outline: none; }` 설정하는 경우가 있습니다.
+
+이는 디자인을 구현하기 위한 처리지만, 시각적 피드백을 제거하여 사용자가 포커스가 어디에 있는지 알기 어렵게 만듭니다.
+
+이런 경우는 CSS의 `focus-visible`과 `focus-within` 속성을 사용하여 해결할 수 있습니다.
+
+- `focus-visible`: 키보드로 포커스가 된 요소에만 스타일을 적용하여 마우스로 클릭한 요소와 구분할 수 있습니다. (사용자가 키보드로 탐색할 때만 포커스 스타일을 적용하고, 마우스로 클릭할 때는 적용되지 않음)
+- `focus-within`: 자신 또는 자식 요소 중 하나가 포커스를 받을 때 스타일을 적용합니다.
+
+예를 들어, 버튼에서 마우스 클릭시에는 outline을 제거하고 키보드로 포커싱 했을 때 `outline`을 보여주고 싶다면 다음과 같이 설정할 수 있습니다.
+
+```css showLineNumbers
+button:focus-visible {
+  outline: 2px solid blue;
+}
+
+/* 마우스로 포커싱 시에는 outline 제거 */
+button:focus:not(:focus-visible) {
+  outline: none;
+}
+```
+
+## 3. 적용 해보기: 모달
+
+범용적으로 재사용하는 컴포넌트 (모달, 드롭다운, 슬라이더 등)에서 키보드 접근성을 고려해 개발한다면 더욱 사용하기 편리한 제품을 만들 수 있습니다.
+
+예를 들어 모달을 구현할 때는 모달이 화면에 보여졌을 때, 키보드 접근성을 향상 시킬 수 있는 여러 방법이 있습니다.
+
+1. 사용자가 선택해야 할 버튼/input에 포커스 하기
+2. 모달 이외의 요소가 키보드로 포커싱 되지 않게 처리하기
+
+### 3.1 사용자가 선택해야 할 버튼/input에 포커스 하기
+
+키보드를 사용하는 사용자를 배려해서, `Tab`을 연타해서 모달의 버튼/input 등 원하는 요소까지 포커스를 움직이는 불편함을 없앨 수 있습니다.
+
+리액트에서는 `useEffect`로 처음 컴포넌트가 보여졌을 때 포커스를 지정해줄 수 있습니다.
+
+```tsx showLineNumbers {5, 16}
+const Modal = ({ closeModal }: ModalProps) => {
+  const confirmButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    confirmButtonRef.current?.focus();
+  }, []);
+
+  return (
+    <div className="fixed ...">
+      <button
+        onClick={() => {
+          alert("확인하기 버튼 클릭");
+          closeModal();
+        }}
+        className="bg-blue-600"
+        ref={confirmButtonRef}
+      >
+        확인하기
+      </button>
+    </div>
+  );
+};
+```
+
+### 3.2 모달 이외의 요소가 키보드로 포커싱 되지 않게 처리하기
+
+구현할 때 크게 2가지 방법이 있는데요,
+
+1. 모달 안쪽에 있는 요소가 아니라면 `tabindex`를 -1로 설정
+
+- 모달이 띄워졌을 때, DOM에 있는 요소들을 순회하면서 포커스가 가능한 요소 (a, button, textarea, input) 등을 선택하고, tabIndex를 -1로 설정하고 이를 `useRef`로 상태를 저장
+- 모달이 닫힐 때, useRef에 있는 요소들을 순회하면서 tabIndex 속성을 제거
+
+2. `Tab` 모달 내 요소만 포커스가 되도록 만들기
+
+- 이벤트 리스너에서 `keydown` 이벤트로 `Tab`이 눌렸을 때, 모달 내의 요소를 찾아 포커스를 이동시키는 방법
+
+1은 구현이 복잡하기도 하고, 다른 요소를 수정해야 해서 2로 구현하는게 좋습니다.
+
+이런 방식을 포커스 트랩이라고 부르는데요, 아래처럼 구현할 수 있습니다.
+
+```tsx showLineNumbers
+import React, { useEffect, useRef } from "react";
+
+interface FocusTrapProps {
+  children: React.ReactNode;
+}
+
+const FocusTrap = ({ children }: FocusTrapProps) => {
+  const trapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleFocusTrap = (e: KeyboardEvent) => {
+      if (e.key === "Tab" && trapRef.current) {
+        const focusableElements = trapRef.current.querySelectorAll<HTMLElement>(
+          // 키보드 포커싱 가능한 요소들 selector
+          "a[href], button, textarea, input, select, [tabindex]:not([tabindex='-1'])"
+        );
+
+        const firstElement = focusableElements[0];
+        const lastElement = focusableElements[focusableElements.length - 1];
+
+        if (e.shiftKey) {
+          if (document.activeElement === firstElement) {
+            lastElement.focus();
+            e.preventDefault();
+          }
+        } else {
+          if (document.activeElement === lastElement) {
+            firstElement.focus();
+            e.preventDefault();
+          }
+        }
+      }
+    };
+
+    document.addEventListener("keydown", handleFocusTrap);
+
+    return () => {
+      document.removeEventListener("keydown", handleFocusTrap);
+    };
+  }, []);
+
+  return <div ref={trapRef}>{children}</div>;
+};
+```
+
+즉, 브라우저에 내장된 `Tab` 기능을 사용하지 못하게 막고, 모달 내에 있는 요소들로 포커싱을 옮겨주는 컴포넌트 입니다.
+
+![모달 포커스 트랩 예제](/images/example-thumbnail-modal.png)
+
+[모달 포커스 트랩 stackblitz 예제](https://stackblitz.com/~/github.com/cheatkey/a11y-lab?file=src/pages/keyboard/alert.tsx&initialPath=/keyboard/alert)에서 확인해보실 수 있습니다.

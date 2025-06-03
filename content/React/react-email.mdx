@@ -1,0 +1,190 @@
+---
+title: "react email로 이메일 마크업 편하게 작성하기"
+tags: ["react", "email", "dx"]
+date: "2024/02/26"
+description: "이메일 템플릿 마크업 작성의 제약과 react-email을 사용하여 이메일 마크업을 편하게 작성하는 방법을 소개합니다."
+---
+
+## 이메일의 다양한 사용처
+
+서비스를 개발하다보면, 고객에게 이메일을 보내야 하는 일이 종종 있습니다.
+
+사용자의 인증 관련한 정보를 알려주거나
+
+![steam 인증 이메일](/images/steam-email.png)
+
+결제 완료를 안내해주기도 합니다.
+
+![네이버페이 결제 안내 이메일](/images/naver-pay-email.png)
+
+상황에 따라서는 뉴스레터를 보내주거나 서비스 업데이트를 안내하는 등 사용처는 다양합니다.
+
+그럼, 이런 이메일 템플릿을 개발하는건 어떻게 하고 있을까요?
+
+## 이메일 템플릿 마크업 방법
+
+이메일 템플릿 코드를 찾아보면, 아래 코드처럼 plain html로 되어 있습니다.
+
+예시 코드 출처 - [codepen 이메일 템플릿 작성 예시](https://codepen.io/tutsplus/pen/aboBgLX)
+
+flex랑 gird가 아닌 table로 레이이웃을 잡고, 모든 스타일링인 전부 인라인으로 되어 있습니다.
+
+```html showLineNumbers
+<table
+  role="presentation"
+  style="width:100%;border-collapse:collapse;border:0;border-spacing:0;background:#ffffff;"
+>
+  <tr>
+    <td align="center" style="padding:0;">
+      <table
+        role="presentation"
+        style="width:602px;border-collapse:collapse;border:1px solid #cccccc;border-spacing:0;text-align:left;"
+      >
+        <tr>
+          <td align="center" style="padding:40px 0 30px 0;background:#70bbd9;">
+            <img
+              src="https://assets.codepen.io/210284/h1.png"
+              alt=""
+              width="300"
+              style="height:auto;display:block;"
+            />
+          </td>
+        </tr>
+        <!-- 생략 ... -->
+      </table>
+    </td>
+  </tr>
+</table>
+```
+
+이는 모던 프론트 개발과는 다른 양상을 보입니다.
+
+최근에는 레이아웃은 flex나 grid를 사용하고, 스타일링은 css in js나 tailwind 등 유틸 CSS를 사용하거나, css 전처리기를 사용하는데, 이메일 템플릿은 초창기 웹 개발의 형태로 개발되고 있습니다.
+
+## 이메일 마크업의 힘든점
+
+이메일 템플릿 마크업 작성 시 위 코드처럼 작성하는 이유는 이메일에 다양한 제약사항이 있기 때문입니다. 자세한 내용은 [https://vallista.kr/웹-개발자의-지옥-이메일-폼-개발하기/](https://vallista.kr/%EC%9B%B9-%EA%B0%9C%EB%B0%9C%EC%9E%90%EC%9D%98-%EC%A7%80%EC%98%A5-%EC%9D%B4%EB%A9%94%EC%9D%BC-%ED%8F%BC-%EA%B0%9C%EB%B0%9C%ED%95%98%EA%B8%B0/) 를 참고해주세요.
+
+대략적으로 구분지어보면, 제약사항은 아래와 같습니다.
+
+1. 여러 브라우저 / 이메일 뷰어에서 발생하는 크로스브라우징 이슈 발생
+2. 스타일링을 inline style로 해결해야 함
+3. 레이아웃 잡기가 힘듦. Flex,Grid 등 모던 CSS 사용에 제한적임
+   - display:flex는 이메일 클라이언트의 84.5%에서 작동하지만, flex 관련 속성 (flex-wrap, align-items 등)은 지원되지 않는 경우가 많아 테이블 사용을 권장 (https://designmodo.com/html-css-emails/)
+
+프론트 개발 환경은 나날히 발전하는데 비해, 이메일은 위의 제약사항을 인해 초창기 형태의 HTML 코드를 작성해야만 합니다. 이런 방식은 개발 피로도가 높아지고, 크게 어려운 디자인이 아님에도 시간을 많이 잡아먹습니다.
+
+그렇다면, 이메일 템플릿 개발을 모던 프론트엔드 개발처럼 쉽게 할 수 있는 방법은 없을까요?
+
+## 더 모던한 방식으로 개발하기 위해, react-email
+
+위에서 언급한 문제를 해결하기 위한 프로젝트가 [react-email](https://react.email/) 입니다.
+
+공식 사이트에서는 이메일 개발을 2010년에 사용하는 방식이 아닌, 오늘날의 방식에 알맞게 현대화 해야 한다며 react-email 프로젝트를 소개하고 있습니다.
+
+> We believe that email is an extremely important medium for people to communicate. However, we need to stop developing emails like 2010, and rethink how email can be done in 2024 and beyond. Email development needs a revamp. A renovation. Modernized for the way we build web apps today.
+>
+> (우리는 이메일이 사람들이 소통하는 데 있어 매우 중요한 매체라고 믿습니다. 그러나,
+> 우리는 2010년처럼 이메일을 개발하는 것을 멈추고, 2024년 및 그 이후에 이메일이 어떻게
+> 이루어질 수 있는지 다시 생각해야 합니다. 이메일 개발은 새로운 변화가 필요합니다.
+> 혁신이 필요합니다. 오늘날 우리가 웹 앱을 구축하는 방식에 맞게 현대화되어야 합니다.)
+
+react-email 에서는 react 개발 환경에서 이메일 템플릿을 작성할 수 있게 합니다. 자주 사용하는 버튼, 텍스트, 이미지, 링크들을 컴포넌트로 제공하여 개발자는 일반적인 UI 라이브러리를 사용하는 것 처럼 개발할 수 있습니다.ㅁ
+
+"이메일 마크업의 힘든점"에서 언급한 제약사항을 어떻게 해결하고 있는지 알아보면,
+
+1. 여러 브라우저 / 이메일 뷰어에서 발생하는 크로스브라우징 이슈
+
+   제공하는 모든 컴포넌트들을 주요 이메일 클라이언트에서 테스트 한다고 합니다. react-email 의 컴포넌트를 사용할 때는 각 컴포넌트가 이메일 클라이언트 별로 작동하는지에 대해서는 걱정하지 않는걸 목표로 하는 것 같습니다
+
+2. 스타일링을 inline style로 해결해야 함
+
+   리액트 앱을 개발하는 것 처럼 JSX + 컴포넌트를 사용하여 개발하기 때문에, JSX에 스타일링을 지정할 수 있습니다.
+
+3. 레이아웃 잡기가 힘듦. Flex,Grid 등 모던 CSS 사용에 제한적임
+
+   레이아웃을 잡는 용도로 row, column 컴포넌트를 제공합니다.
+
+## 실제 react-email 코드 살펴보기
+
+react-email의 실제 코드를 살펴보면, 일반적인 웹 개발과 유사합니다
+
+![리액트 이메일 빌드 코드](/images/react-email-build.png)
+
+왼쪽 코드는 react-email을 사용하여 작성한 코드고, 오른쪽은 이를 HTML로 빌드한 파일입니다.
+
+1. 레이아웃을 잡기 위해서 Flex나 Grid가 아닌, Table을 사용합니다. (개발자가 직접 작성할 필요 없이 자동 변환)
+2. Heading, Link, Text 등의 컴포넌트로 개발자가 코드를 작성하면, 이를 이메일에서 보여줄 수 있도록 인라인 스타일링 방식으로 바꾸어줍니다.
+
+아래 명령어로 react-email 프로젝트를 시작해볼 수 있습니다.
+
+```bash showLineNumbers
+npx create-email@latest
+```
+
+## 이메일 템플릿 배포
+
+개발을 완료했다면 실제 유저에게 발송해야겠죠. 이를 위해 2가지 방법을 지원합니다.
+
+1. 이메일 발송 프로바이더를 사용하여 이메일 발송
+
+https://react.email/docs/integrations/resend 에 있는 예시 코드 입니다. props로 받은 데이터로 유저에게 이메일을 발송해줍니다.
+
+```jsx showLineNumbers
+import { Resend } from "resend";
+import { Email } from "./email";
+
+function Email(props) {
+  const { url } = props;
+
+  return (
+    <Html lang="en">
+      <Button href={url}>Click me</Button>
+    </Html>
+  );
+}
+
+const resend = new Resend("re_123456789");
+
+await resend.emails.send({
+  from: "you@example.com",
+  to: "user@gmail.com",
+  subject: "hello world",
+  react: <Email firstName="John" product="MyApp" />,
+});
+```
+
+지원하는 프로바이더는 현재 기준으로 6가지 입니다.
+
+- Resend
+- SendGrid
+- Nodemailer
+- Postmark
+- AWS SES
+- Plunk
+
+이 중 resend는 react-email의 개발자가 창업한 서비스라고 합니다. 관심 있으시면 아래 내용을 읽어보세요
+
+- **[Resend(YC 23W)의 9달만에 0 -> 2만명의 유저를 확보하기까지의 이야기](https://news.hada.io/topic?id=10781)**
+- https://resend.com/blog/introducing-resend
+
+2. HTML로 빌드
+
+작성한 이메일 템플릿을 정적 HTML 파일로 빌드하는 방법을 제공합니다.
+
+export를 통해 이메일 템플릿을 HTML로 빌드할 수 있습니다.
+
+```bash showLineNumbers
+npm export
+```
+
+빌드된 파일은 out 폴더에서 확인 가능합니다.
+
+참고로, 개발 시 상단 사이드바에서 미리보기로 HTML로 빌드한 결과를 볼 수 있습니다
+
+![예제](/images/react-email-html.png)
+
+## 결론
+
+- 이메일 템플릿 마크업 작성은 코드 작성에 여러가지 제약 사항이 있어 개발자 경험이 좋지 않습니다.
+- 이를 개선하기 위한 프로젝트가 react-email로, 리액트와 제공되는 컴포넌트를 통해 더 편하게 이메일 템플릿을 작성할 수 있습니다.

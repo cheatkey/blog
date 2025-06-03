@@ -1,0 +1,208 @@
+---
+title: "weakmap에 대해 알아보고 메모리 해제 확인해보기"
+tags: ["javascript"]
+date: "2024/05/02"
+description: "weakmap에 대해 알아보고, Map과 비교해 메모리 누수 이슈가 없는지 확인하는 등 일반적인 유즈케이스를 살펴봅니다."
+icon: "javascript"
+---
+
+# WeakMap
+
+`WeakMap`이란 객체를 키로 사용하며, 키로 사용된 객체가 다른 곳에서 참조되지 않을 때 자동으로 가비지 컬렉션 될 수 있는 자바스크립트의 자료구조 입니다.
+
+객체와 연결된 데이터를 메모리에 안전하게 저장하고, 객체가 더 이상 필요하지 않을 때 자동으로 데이터를 정리하는 용도로 사용됩니다.
+
+## Map과 차이점
+
+- 키는 객체만 사용할 수 있습니다. 문자열이나 숫자는 사용할 수 없습니다.
+- `set`4가지 메소드만 사용할 수 있습니다.
+  - `size`로 몇 개의 데이터를 가지고 있는지 확인하거나 순회를 돌기 위해서는 객체가 계속 메모리를 차지(강한 참조)하고 있어야 하기 때문입니다.
+
+```ts showLineNumbers
+const weakMap = new WeakMap();
+let obj1 = { key: "value" };
+let obj2 = { key: "value" };
+
+weakMap.set(obj1, "value1");
+weakMap.set(obj2, "value2");
+
+console.log(weakMap.get(obj1)); // "value1"
+console.log(weakMap.has(obj2)); // true
+
+obj2 = null;
+console.log(weakMap.has(obj2)); // false
+
+weakMap.delete(obj1);
+weakMap.has(obj1); // false
+
+console.log(obj1); //{key: 'value'}
+```
+
+즉, `WeakMap`으로는 정확한 크기를 확인하거나 순회할 방법이 없습니다.
+
+## 약한 참조
+
+약한 참조란, 해당 객체가 다른 곳에서 더 이상 사용되지 않는다면 가비지 컬렉터에 의해 자동으로 메모리에서 제거될 수 있도록 하는 참조입니다.
+
+일반적인 객체나 `Map`에 저장한 경우, 더 이상 데이터에 접근할 수 없다고 해도 가비지 컬렉션 대상이 되지 않고 메모리에 남아있게 됩니다.
+
+```ts showLineNumbers
+let data = { name: "hello" };
+const map = new Map();
+map.set(data, 1);
+data = null;
+
+console.log(data); // null
+console.log(map); // Map(1) { { name: 'hello' } => 1 } (데이터가 남아있음)
+```
+
+이는 사용하지 않는 데이터이지만, 메모리에는 존재하게 되어 메모리 누수 문제를 일으킬 수 있습니다.
+
+# USE CASE
+
+실제로 `WeakMap`을 사용하는 사례를 보면서, 언제/왜 사용하는지 알아보겠습니다.
+
+## 1. 메모리 누수 방지
+
+카드 UI를 DOM에 추가하고, 추가 데이터를 `Map`에 저장하는 예제 입니다.
+
+DOM에서는 제거 되었지만, `Map`에는 데이터가 남아 메모리 누수 문제가 있습니다.
+
+직접 돔을 추가하고, 제거하면서 크롬 개발자 도구를 통해 메모리 사용량을 확인해보겠습니다.
+
+메모리 사용량을 직관적으로 볼 수 있도록, 카드 만들 때 10MB 크기의 `Uint8Array`를 같이 사용했습니다.
+
+- "Create Profile Card" 버튼을 클릭하면 카드를 추가하고, Map에 객체 정보를 추가합니다.
+- "Close" 버튼을 누르면 카드를 제거합니다.
+
+```html showLineNumbers {11}
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Profile Card Generator</title>
+  </head>
+  <body>
+    <button id="createCard">Create Profile Card</button>
+    <script>
+      const profileDataMap = new Map();
+
+      function createProfileCard(userData) {
+        const card = document.createElement("div");
+        card.className = "profile-card";
+        card.innerHTML = `
+                <h3>${userData.name}</h3>
+                <p>${userData.description}</p>
+                <button class="close-btn">Close</button>
+            `;
+
+        profileDataMap.set(card, userData);
+
+        card.querySelector(".close-btn").addEventListener("click", function () {
+          card.remove();
+        });
+
+        document.body.appendChild(card);
+      }
+
+      document
+        .getElementById("createCard")
+        .addEventListener("click", function () {
+          const names = ["John Doe", "Jane Smith"];
+          const descriptions = ["Front-end Developer", "Back-end Specialist"];
+          const index = Math.floor(Math.random() * names.length);
+
+          const buffer = new Uint8Array(10 * 1024 * 1024); // 10MB
+
+          createProfileCard({
+            name: names[index],
+            description: descriptions[index],
+            buffer,
+          });
+        });
+    </script>
+  </body>
+</html>
+```
+
+### Map 메모리 사용량 확인해보기
+
+카드를 1개 만들었을 때, 예상한대로 Map의 크기는 약 10MB입니다.
+
+![예제](/images/weakmap-example-1.png)
+
+추가로 카드를 1개 더 만들었을 떄 Map의 크기는 약 21MB입니다.
+
+![예제](/images/weakmap-example-2.png)
+
+정상적으로 메모리에 할당 된 것 같으니, 이제 DOM을 삭제해보겠습니다.
+
+![예제](/images/weakmap-example-3.png)
+
+화면상으로는 카드가 사라지고, DOM에서 해제 되었지만, profileDataMap에서 데이터를 삭제하는 코드가 없기 때문에 profileDataMap에는 userData가 남아있어 메모리 사용량이 변하지 않았습니다.
+
+![예제](/images/weakmap-example-4.png)
+
+즉, Map은 강한 참조를 가지고 있어서 `key`인 `card`가 삭제되었어도 `profileDataMap`에는 데이터가 그대로 남아 있습니다.
+
+### WeakMap 메모리 사용량 확인해보기
+
+이번에는 `WeakMap`으로 동일하게 테스트 해보겠습니다. 11번 라인에 있는 `Map()`만 `WeakMap()`으로 바꿔주었습니다. 이번에는 메모리 사용량만 바로 확인해보겠습니다.
+
+- 카드 1개 추가 (WeakMap 크기 약 10MB)
+
+![예제](/images/weakmap-example-5.png)
+
+- 카드 1개 추가 (WeakMap 크기 약 21MB)
+
+![예제](/images/weakmap-example-6.png)
+
+- 카드 1개 추가 (WeakMap 크기 약 31MB)
+
+![예제](/images/weakmap-example-7.png)
+
+- 카드 1개 제거 (WeakMap 크기 약 21MB)
+
+![예제](/images/weakmap-example-8.png)
+
+- 카드 1개 제거 (WeakMap 크기 약 10MB)
+
+![예제](/images/weakmap-example-9.png)
+
+`WeakMap`은 약한 참조를 가지고 있어서, 데이터를 삭제하는 코드가 없어도 `key`인 `card`가 삭제되면 `WeakMap`의 데이토 같이 회수되는 것을 확인할 수 있습니다.
+
+`Dom`에 추가적인 데이터를 저장할 때 `Dom`이 삭제되면 데이터가 같이 삭제되기를 원한다면 `WeakMap`을 사용할 수 있습니다.
+
+## 2. 캐시
+
+`key`로 지정한 객체가 더 이상 참조되지 않게 되면 메모리가 해제 되는 특성으로 캐싱시에도 유용합니다.
+
+```ts showLineNumbers
+let cache = new WeakMap();
+
+function process(obj) {
+  if (!cache.has(obj)) {
+    console.log("계산");
+    let result = obj.a + obj.b + obj.c;
+    cache.set(obj, result);
+  }
+
+  console.log("캐시 반환");
+  return cache.get(obj);
+}
+
+let obj = {
+  a: 1,
+  b: 2,
+  c: 3,
+};
+
+// 계산
+// 캐시 반환
+let result1 = process(obj);
+// 캐시 반환
+let result2 = process(obj);
+obj = null;
+// cache에서 key인 obj가 참조할 수 없게 되었으므로, key가 obj인 데이터 삭제
+```

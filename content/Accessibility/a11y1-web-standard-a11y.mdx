@@ -1,0 +1,155 @@
+---
+title: "웹 표준과 접근성에 대해 알아보기"
+tags: ["a11y"]
+date: "2024/02/27"
+description: "웹 표준은 무엇이며 왜 지켜야 하는지, 접근성은 무엇인지에 대해 알아봅니다."
+---
+
+> "접근성 개선" 시리즈로 작성된 1번째 글입니다.
+
+![예제](/images/series-a11y.png)
+
+웹 표준과 접근성이 무엇인지, 프론트엔드 개발을 할 때 접근성을 향상 시키기 위해서는 어떤 방법이 있을지에 대한 시리즈 글로, 프론트 개발을 하다보면 들어보셨을 `WAI-ARIA`가 뭔지, 어떤 개발을 할 때 어떻게 접근성을 향상 시킬 수 있는지에 대해서 써보려고 합니다.
+
+## 1. 웹 표준 (Web Standards)
+
+MDN에서는 웹 표준을 “웹의 작동 방식을 정의하고 때로는 인터넷을 통제하는 국제 표준 기관에서 제정한 규칙”이라고 설명합니다. 이러한 규칙은 상호 운용성, 보안, 개인정보 보호, 웹 접근성에 최적화 되어 있고, 모든 사람이 웹을 사용할 수 있도록 합니다.
+
+웹 표준은 W3C(World Wide Web Consortium), IETF(Internet Engineering Task Force), WHATWG(Web Hypertext Application Technology Working Group) 등의 표준화 기구에서 제정하고 관리합니다.
+
+[W3C standards and drafts](https://www.w3.org/TR/?filter-tr-name=&status%5B%5D=standard) 에서 실제 웹 표준 문서를 보실 수 있습니다.
+
+- 초안과 후보 권고안을 제외한 최종 권고안만 보기 위해서는 Advanced filter options 에서 Standards만 선택하면 됩니다.
+- DOM, CSS, HTML 처럼 직접적인 개발에 관한 내용부터 Accessibility, Security, Privacy 등의 항목도 존재합니다.
+
+## 2. 시멘틱 마크업 (Semantic Markup)
+
+의미 있는 태그를 사용해서 마크업 언어(HTML)를 작성하는 것을 의미합니다.
+
+일반적으로 사용되는 태그는 `<article>`, `<aside>`, `<details>`, `<figcaption>`, `<figure>`, `<footer>`, `<form>`, `<header>`, `<main>`, `<mark>`, `<nav>`, `<section>`, `<summary>`, `<time>` 등이 있습니다. 자세한 목록은 https://developer.mozilla.org/en-US/docs/Web/HTML/Element 에서 확인하실 수 있습니다.
+
+시멘틱 마크업 사용하지 않아도, 시각적으로는 문제 없는 마크업을 작성할 수 있습니다.
+
+하지만 접근성 측면에서 영항을 미치는데요, 동일한 UI를 시멘틱 마크업을 사용한 경우/ 비 시맨틱 마크업을 사용해 작성한 경우를 비교해보면서 알아보겠습니다.
+
+### 2.1 시맨틱 마크업 vs 비 시맨틱 마크업 AOM (Accessibility Object Model) 비교
+
+시각적으로는 의미가 없는 태그 (div, span 등) 을 사용한 결과와 의미가 있는 태그 (article, aside 등)가 동일하게 보이지만 브라우저가 해석하거나, 스크린 리더기 등 보조도구가 해석할 때는 완전히 다른 결과가 보여집니다.
+
+```tsx showLineNumbers {4,5}
+const Nav = () => {
+  return (
+    <nav className="bg-gray-100 text-gray-800 p-4 shadow-sm">
+      <ul className="flex space-x-4">
+        <li>
+          <a
+            href="#home"
+            className="hover:underline text-gray-800 font-semibold"
+          >
+            Home
+          </a>
+        </li>
+        <li>
+          <a href="#about" className="hover:underline text-gray-600">
+            About
+          </a>
+        </li>
+        <li>
+          <a href="#contact" className="hover:underline text-gray-600">
+            Contact
+          </a>
+        </li>
+      </ul>
+    </nav>
+  );
+};
+```
+
+- 시멘틱 태그를 사용해서 마크업을 작성한 예제: https://codepen.io/cheatkey/pen/RwmLwdE
+
+![시맨틱 마크업을 사용했을 때 AOM](/images/a11y-semantic-2.png)
+
+`nav` 같은 시맨틱 태그를 사용한 경우 접근성 트리 (AOM)을 확인해보면 각 UI 영역이 알맞게 의미가 지정되어 있습니다.
+
+```tsx showLineNumbers {4,5}
+const Nav = () => {
+  return (
+    <div className="bg-gray-100 text-gray-800 p-4 shadow-sm">
+      <div className="flex space-x-4">
+        <span>
+          <a
+            href="#home"
+            className="hover:underline text-gray-800 font-semibold"
+          >
+            Home
+          </a>
+        </span>
+        <span>
+          <a href="#about" className="hover:underline text-gray-600">
+            About
+          </a>
+        </span>
+        <span>
+          <a href="#contact" className="hover:underline text-gray-600">
+            Contact
+          </a>
+        </span>
+      </div>
+    </div>
+  );
+};
+```
+
+- `div`, `span` 등 의미가 없는 태그를 사용해서 마크업을 작성한 예제: https://codepen.io/cheatkey/pen/RwmLwzv
+
+![의미가 없는 마크업 태그를 사용했을 때 AOM](/images/a11y-semantic-1.png)
+
+비 시맨틱 마크업 태그로 마크업을 작성한 경우, 시각적으로는 UI 영역을 구분할 수 있지만 AOM 상으로는 구분되지 않고 동일한 위계로 보여집니다.
+
+### 2.2 코드 측면에서 시맨틱 마크업이 가지는 이점
+
+태그 자체가 의미를 가지는 것과 더불어 키보드 포커싱 등 불 필요한 코드를 작성하지 않아도 됩니다.
+
+예를 들어 `<div>`를 버튼 요소처럼 사용하려면 `role="button"`을 설정하고 키보드 포커싱이 가능하게 `tabindex`를 설정하는 등의 추가 작업이 필요하지만, 마크업 단계에서 `<button>`을 사용하면 이러한 작업이 필요 없습니다.
+
+## 3. 접근성 (Accessibility)
+
+MDN에서는 "신체적, 기술적 제한에도 불구하고 웹 사이트를 계속 사용할 수 있도록 하는 모범 사례" 라고 설명합니다.
+
+모든 사용자 (시각적 정보가 제한되어 보조 기술를 이용하는 사용자, 색각 이상자, 저시력 사용자, 키보드를 사용하는 사용자 등)가 사용할 수 있는 웹을 만들기 위해서 색상 및 폰트 크기 같은 디자인 영역과 보조 기술를 신경쓰는 개발 영역 등 여러가지 측면이 있습니다.
+
+접근성을 위해 고려해야 하는 항목에 대해 자세히 알고 싶다면 [WCAG (Web Content Accessibility Guidelines) 2.1](http://www.kwacc.or.kr/WAI/wcag21/)를 보시면 됩니다. WCAG는 다양한 사람들이 웹 컨텐츠에 더 쉽게 접근할 수 있도록 개발하는 방법을 안내합니다.
+
+### 3.1 적합성 수준
+
+WCAG에는 많은 접근성 항목이 있는데요, 각 접근성 항목은 3가지로 구분됩니다.
+
+- A: 가장 기본적인 접근성 요구사항을 충족
+- AA: 대부분의 사용자에게 중요한 접근성 요구사항을 충족
+- AAA: 가장 높은 수준의 접근성 요구사항을 충족
+
+### 3.2 주요 원칙 4가지
+
+WCAG 2.1의 아래 4가지 (약칭: POUR)를 주요 기본 원칙으로 삼습니다.
+
+- Perceivable (인식 가능): 정보와 사용자 인터페이스 구성 요소는 사용자가 인식할 수 있어야 합니다.
+
+보조 기술에서 이미지를 인식할 수 있도록 적절한 대체 텍스트를 제공하는 방법과, 개발자 도구에서 색상 대비를 확인하는 방법등을 소개합니다
+
+- Operable (조작 가능): 사용자 인터페이스 구성 요소와 내비게이션은 조작할 수 있어야 합니다.
+
+태그에 포커싱이 가능하게 하거나, 포커싱이 되었을 때 시각적인 힌트를 제공하는 등 키보드을 접근성 향상 시키는 방법을 소개합니다
+
+- Understandable (이해 가능): 정보와 사용자 인터페이스는 이해할 수 있어야 합니다.
+
+- Robust (견고성): 콘텐츠는 다양한 사용자 에이전트, 특히 보조 기술과 호환 가능해야 합니다.
+
+태그에 역할을 부여하거나, 사용자에게 피드백을 주는 등, 스크린 리더 같은 보조 기술과 호환되도록 코드를 작성하는 방법을 소개합니다.
+
+### Reference
+
+- https://developer.mozilla.org/ko/docs/Glossary/Accessibility
+
+- https://developer.mozilla.org/en-US/docs/Web/HTML/Element
+
+- http://www.kwacc.or.kr/WAI/wcag21/

@@ -1,0 +1,116 @@
+---
+title: "UI 컴포넌트 개발전 접근성 항목 확인하기"
+tags: ["a11y"]
+date: "2024/02/27"
+description: "자주 사용하는 UI 패턴별로 접근성 향상을 위해 어떤 코드를 작성해야 하고, 어떤 기준을 준수해야 하는지 알아봅니다."
+---
+
+> "접근성 개선" 시리즈로 작성된 7번째 글입니다.
+
+![예제](/images/series-a11y.png)
+
+UI를 개발하다보면 탭, 모달, 상태바 등 공통적으로 사용하는 요소들이 많은데요, 디자인 시스템을 만들거나, 자주 사용하는 UI의 코드를 재활용 한다고 하면 적은 코드로도 접근성 향상을 향상 시킬 수 있습니다.
+
+이번 글에서는 UI 컴포넌트를 개발할 때 접근성을 향상 시키는 방법에 대해서 알아봅니다.
+
+# 1. 컴포넌트별 참고 가이드
+
+이전에 키보드, aria에 대한 글에서 소개한 것 처럼, 각 UI 컴포넌트별로 접근성 향상을 위해 처리해야 하는 영역이 각기 달라서, 경우에 따라 업데이트된 상태에 대해 스크린 리더기에 피드백을 해줘야 할 수도, 키보드에 신경을 써야 할 수도 있습니다.
+
+개발하려고자 하는 컴포넌트에 어떤 처리가 필요한지를 먼저 인식하는게 중요한데요,
+
+[ARIA Authoring Practices Guide (APG)](https://www.w3.org/WAI/ARIA/apg/)에서는 UI 별로 접근성 향상을 위해서는 어떤 처리를 해야할지에 대한 가이드를 제공합니다.
+
+![예제](/images/apg-intro.png)
+
+비교적 간단한 대화 상자 (alert dialog)의 경우에는 접근성 향상을 위해 아래 지침을 제공합니다.
+
+- role: `alertdialog`
+- aria
+
+  - dialog 안에 레이블이 있을 경우, 레이블을 참조하는 `aria-labelledby`
+  - 레이블이 없는 경우 `aria-label`
+
+UI의 종류마다 개발해야 하는 내용이 달라지기 때문에, 개발하고자 하는 컴포넌트에서 접근성을 향상 시키기 위한 지침을 참고하시는게 좋습니다
+
+# 2. 오픈 소스 참고하기
+
+이미 만들어진 UI 라이브러리를 참고하는것도 많은 도움이 됩니다.
+
+- **React Aria**: [React Aria](https://react-spectrum.adobe.com/react-aria/)
+- **Radix UI**: [Radix UI](https://www.radix-ui.com/)
+- **Headless UI**: [Headless UI](https://headlessui.dev/)
+- **Next UI**: [Next UI](https://nextui.org/)
+
+![Next UI button 접근성 지원](/images/nextui-button-a11y.png)
+
+React Aria에서 제공하는 Alert dialog의 마크업입니다. 코드를 살펴보면, APG에서 제공하는 가이드대로 개발되어 있음을 알 수 있습니다.
+
+```html showLineNumbers {4-6}
+<div class="react-aria-Modal" data-rac="">
+  <section
+    id="react-aria5604341329-:ru:"
+    aria-labelledby="react-aria5604341329-:r12:"
+    role="alertdialog"
+    tabindex="-1"
+    class="react-aria-Dialog"
+  >
+    <h2 id="react-aria5604341329-:r12:" slot="title" class="react-aria-Heading">
+      Delete file
+    </h2>
+    <p>This will permanently delete the selected file. Continue?</p>
+    <div style="display: flex; gap: 8px;">
+      <button type="button" class="react-aria-Button" data-rac="">Cancel</button
+      ><button type="button" class="react-aria-Button" data-rac="">
+        Delete
+      </button>
+    </div>
+  </section>
+</div>
+```
+
+# 3. 실제로 개발해보기
+
+UI 컴포넌트 마다 구현해야 하는 상황이 다르겠지만, 맛보기를 위해서 비교적 버튼 컴포넌트를 직접 구현해보겠습니다.
+
+[APG](https://www.w3.org/WAI/ARIA/apg/patterns/button/)에서 제공하는 가이드에서는 아래와 같은 지침을 제공합니다.
+
+- 키보드
+  - 스페이스바, 엔터로 버튼을 누를 수 있어야 한다.
+- WAI-ARIA
+  - role: `button`
+  - aria:
+    - 필요에 따라 `aria-labelledby`, `aria-label`, `aria-describedby`를 사용한다.
+    - 버튼이 비활성화 되면 `aria-disabled=true`로 설정한다.
+    - 토글 버튼인 경우 (꺼짐/켜짐),`aria-pressed` 상태를 가진다.
+- 마크업
+  - 접근 가능한 레이블이 있어야 한다.
+
+일단 HTML에서 버튼 요소를 사용해서, 어떤 작업이 먼저 필요한지를 알아보면
+
+```tsx showLineNumbers
+<button
+  onClick={() => {
+    alert("clicked!");
+  }}
+>
+  버튼입니다.
+</button>
+```
+
+키보드의 경우, 스페이스나 엔터로 onClick을 실행시킬 수 있기 때문에 별도의 처리가 필요 없습니다.
+
+WAI-ARIA는 별도로 설정하지 않았기 때문에, `Button`의 요소 기본값으로 되어 있습니다. Role은 `Button`으로 들어가기 때문에 적절한 `aria`만 추가해주면 되겠습니다.
+
+![Button 요소 접근성](/images/button-element-a11y.png)
+
+```tsx showLineNumbers
+aria-disabled={isDisabled}
+disabled={isDisabled}
+onKeyDown={handleKeyDown}
+aria-label={children}
+```
+
+이렇게 WAI-ARIA 설정을 해둔 버튼을 비활성화 하면, aria 등으로 UI의 상황을 더욱 자세히 설명할 수 있습니다.
+
+![접근성 처리 후 버튼 비활성화](/images/button-disabled-aria.png)

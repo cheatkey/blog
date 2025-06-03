@@ -1,0 +1,140 @@
+---
+title: "ROLE을 사용해 접근성 향상 시키기"
+tags: ["a11y"]
+date: "2024/02/27"
+description: "HTML 요소의 역할을 왜 지정해야 하는지, 어떻게 접근할 수 있는지 알아봅니다."
+---
+
+> "접근성 개선" 시리즈로 작성된 5번째 글입니다.
+
+![예제](/images/series-a11y.png)
+
+이전 글에서 소개한 ARIA 속성은 요소의 상태나 속성을 정의하여 보조기기(스크린 리더 등)가 UI의 상태를 더 잘 파악할 수 있도록 돕습니다. 이번 글에서 소개할 `ROLE` 속성은 의미 그대로 마크업 요소의 역할을 지정하는 속성입니다.
+
+조금 극단적인 예시지만, 아래 Card UI는 시각적으로는 동일해도 상황에 따라서 여러가지 역할로 사용 됩니다.
+
+![card UI를 radio/ check로 사용하는 예시](/images/a11y-aria-4.png)
+
+상단에 있는 메뉴를 1개 선택하는 UI는 radio로 작동하고, 하단에 있는 토핑을 여러개 선택하는 UI는 checkbox 처럼 작동합니다.
+
+이는 맥락상으로는 구분 되지만, 보조기기에서는 각각 어떤 역할을 하는지 알 수 없기 떄문에 `ROLE` 속성을 사용해 요소가 어떤 역할을 하는지를 지정해줘야 합니다.
+
+## 1. 역할 유형
+
+크게 여섯 가지로 분류할 수 있습니다.
+
+1. **문서 구조 역할 (Document Structure Roles)**: 웹 페이지의 논리적 구조를 정의
+   - 예시: `role="article"`, `role="section"`, `role="heading"`
+2. **위젯 역할 (Widget Roles)**: 사용자와 상호작용하는 요소를 정의
+   - 예시: `role="button"`, `role="checkbox"`, `role="dialog"`
+3. **랜드마크 역할 (Landmark Roles)**: 웹 페이지의 주요 섹션을 정의
+   - 예시: `role="navigation"`, `role="main"`, `role="search"`
+4. **라이브 영역 역할 (Live Region Roles)**: 동적으로 업데이트되는 콘텐츠를 정의
+   - 예시: `role="alert"`, `role="status"`, `role="log"`
+5. **창 역할 (Window Roles)**: 웹 애플리케이션의 창이나 대화 상자를 정의
+   - 예시: `role="alertdialog"`, `role="dialog"`
+6. **추상 역할 (Abstract Roles)**: 다른 역할의 기초를 제공하지만, 실제 HTML에서 직접 사용되지 않는 역할
+   - 예시: `role="roletype"`, `role="structure"`, `role="widget"`
+
+더 자세한 역할의 목록과 설명은 [MDN 웹 문서](https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles)에서 확인할 수 있습니다.
+
+`aria` 속성과 마찬가지로, 시멘틱 마크업을 사용할 수 있다면 시멘틱 마크업으로 작성하는게 제일 좋습니다.
+
+가령 div나 span을 버튼처럼 사용하려는 경우 `role="button"` 을 지정하는 등 추가적인 처리가 필요한데요, 시멘틱 마크업을 사용하면 불 필요한 코드가 필요 없어 간결해지고, 인터렉션이나 접근성 향상을 위한 추가적인 코드도 필요하지 않습니다.
+
+## 2. ROLE 속성 사용해보기
+
+HTML 요소의 속성에 `role`을 지정해주면 됩니다.
+
+### 2.1 Radio Card UI 만들기
+
+위에서 언급한 예시인 Card UI를 라디오로 사용하는 코드입니다.
+
+```tsx showLineNumbers {9-14, 19-22}
+interface CardProps {
+  title: string;
+  description: string;
+  isSelected: boolean;
+  handleSelect: () => void;
+}
+
+const Card = ({ title, description, isSelected, handleSelect }: CardProps) => {
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === " ") {
+      event.preventDefault();
+      handleSelect();
+    }
+  };
+
+  return (
+    <div
+      onClick={handleSelect}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      aria-checked={isSelected}
+      role={"radio"}
+      className={`w-full bg-gray-50 p-4 rounded-lg shadow-sm ${
+        isSelected && "bg-gray-200"
+      }`}
+    >
+      <div className="tracking-wide text-sm text-gray-900 font-semibold">
+        {title}
+      </div>
+      <p className="mt-2 text-gray-600">{description}</p>
+    </div>
+  );
+};
+```
+
+- `onKeyDown`: `<input type="radio">` 처럼, 키보드로 포커싱 되었을 때 스페이스 바를 눌러 선택할 수 있도록 키보드 이벤트를 받아줍니다.
+- `tabIndex`: 일반적으로 div는 포커싱되지 않는 요소입니다. 키보드로 포커싱할 수 있도록 설정해줍니다.
+- `aria-checked`: 시각적으로는 선택된 요소의 색상을 변경하지만 스크린 리더는 이를 알 수 없는데요, aria-checked를 지정하면 스크린 리더는 이 정보를 읽어 사용자에게 요소의 선택 상태를 알려줍니다
+- `role`: 요소의 역할을 라디오 버튼으로 지정해줍니다.
+
+![예제](/images/role-example-card.png)
+
+![예제](/images/role-example-card-radio.png)
+
+### 2.2 div를 button으로 사용하기
+
+위 코드와 유사합니다. 다만 role을 `button`으로 설정하고, userSelect을 none으로 지정해 텍스트를 선택할 수 없도록 설정할 수 있습니다.
+
+```tsx showLineNumbers {10, 11, 13}
+const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+  if (event.key === " ") {
+    event.preventDefault();
+    onClick();
+  }
+};
+
+return (
+  <div
+    role="button"
+    tabIndex={0}
+    onClick={onClick}
+    onKeyDown={handleKeyDown}
+    style={{ userSelect: "none" }}
+  >
+    {children}
+  </div>
+);
+```
+
+### 2.3 장식용 요소라고 명시하기
+
+`role="presentation"`을 설정하여 일부 요소는 시각적으로 보여주기 위한 장식용 요소라고 지정할 수 있습니다.
+
+```tsx showLineNumbers {4}
+const ListItem = ({ icon, text }: ListItemProps) => {
+  return (
+    <li className="flex items-center space-x-2">
+      <span role="presentation" className="flex-shrink-0">
+        {icon}
+      </span>
+      <span>{text}</span>
+    </li>
+  );
+};
+```
+
+이 외에도 `alert`, `dialog` 등으로 사용자에게 피드백을 주는 요소라고 지정하거나, `tab`, `navigation`, ... 등 다양한 `role`이 존재합니다.

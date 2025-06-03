@@ -1,0 +1,153 @@
+---
+title: "vite에서 gzipped json을 불러올 때, 개발 환경과 프로덕션 환경에서 데이터를 다르게 불러오는 이슈 트러블슈팅"
+tags: ["vite", "troubleshooting", "bundler"]
+date: "2024/02/25"
+description: "개발 환경과 프로덕션 환경에서 gzip 으로 압축된 JSON 데이터를 다르게 가져오는 이슈에 대해 알아봅니다"
+---
+
+Vite를 사용한 프로젝트 개발 과정에서 겪은, gzip으로 압축한 JSON 데이터를 불러오는 과정에서 발생한 이슈에 대해 이야기하려고 합니다.
+
+## 문제 발견 (dev/prod 차이)
+
+프로젝트에서 `/public` 폴더에 동적으로 불러와야 하는 json 데이터들을 gzip으로 압축한 후, 상황에 따라서 불러오는 형태로 개발하고 있었습니다.
+
+데이터를 불러올 때 axios.get에서 파일 경로를 직접 호출하는 형태로 코드를 작성했는데요, 작성한 코드가 개발 환경이거나 preview 환경일 때는 작동하지만, 프로덕션 환경에서는 동작하지 않았습니다.
+
+```ts showLineNumbers
+type DummyDataType = {
+  completed: boolean;
+  id: number;
+  title: string;
+  userId: number;
+};
+
+function App() {
+  const [data, setData] = useState<DummyDataType>();
+
+  useEffect(() => {
+    const main = async () => {
+      const data = await api.get<DummyDataType>("test.json.gz");
+      setData(data.data); // gzip 압축이 풀린 json 데이터
+    };
+    main();
+  }, []);
+
+  if (!data) return <>loading...</>;
+  // ... 생략
+```
+
+개발이나 preview환경일 때는 json 데이터를 반환했지만, production일 때는 아래 스크린샷처럼 압축 풀린 json 데이터가 아닌, gzip 데이터를 문자열로 반환하고 있었습니다. (\u001f�\b\u0000\u0000\u0000\u0000\u000)
+
+![production 환경](/images/20240225203225.png)
+
+## 문제 원인 알아보기
+
+데이터를 불러오는 코드는 동일하니 네트워크 요청의 헤더를 살펴봤습니다.
+
+프로덕션에서는 s3를 사용하고 있었기에 s3 vs vite dev 환경으로 비교 했습니다. (요청을 보낼 때는 curl을 사용했습니다.)
+
+vite dev 환경에서 서빙하고 있는 gzip 파일을 요청했을 때 헤더는 아래와 같습니다.
+
+```plaintext showLineNumbers
+Access-Control-Allow-Origin: *
+Content-Length: 752411
+Content-Type: application/json
+Last-Modified: Thu, 08 Feb 2024 06:15:03 GMT
+Content-Encoding: gzip
+ETag: W/"752411-1707372903757"
+Cache-Control: no-cache
+Date: Tue, 13 Feb 2024 05:36:41 GMT
+Connection: keep-alive
+Keep-Alive: timeout=5
+```
+
+프로덕션 환경인 S3에 있는 gzip 파일을 요청했을 때 헤더는 아래와 같습니다.
+
+```plaintext showLineNumbers
+x-amz-id-2: MxxbgbGY9ZdVl7MhvD4C1lgFEsOD2AZTXLK2gygb9nYugL0dTSPW5ugtv9hOGTuH33b/711t/lk=
+x-amz-request-id: K6CZGHNJ825R683J
+Date: Tue, 13 Feb 2024 05:40:39 GMT
+Last-Modified: Thu, 08 Feb 2024 06:45:07 GMT
+ETag: "17be8c8f8c8924326f9c17623fe6f7ac"
+x-amz-server-side-encryption: AES256
+Accept-Ranges: bytes
+Content-Type: application/json
+Server: AmazonS3
+Content-Length: 752411
+```
+
+개발 환경에는 있지만 프로덕션에 없는 헤더는 5가지 입니다.
+
+- Access-Control-Allow-Origin: 다른 도메인에서 리소스 접근을 허용하는 정책을 지정
+- Content-Encoding: 데이터 전송 시 사용하는 인코딩 타입을 명시
+- Cache-Control: 리소스의 캐싱 정책을 정의
+- Connection: 클라이언트와 서버 간의 연결 유지 여부를 관리
+- Keep-Alive: keep-alive 연결의 파라미터를 설정하여 TCP 연결 유지 관리
+
+이 중 데이터의 형식을 지정하는 Content-Encoding 헤더가 눈에 띄었고, 프로덕션 (s3) 환경에서 개발 환경처럼 `Content-Encoding: gzip` 를 지정해서 테스트 해봤더니 앱에서 정상적으로 압축 풀린 데이터를 가져왔습니다.
+
+## Content-Encoding 헤더
+
+`Content-Encoding`는 웹 서버와 클라이언트 간에 전송되는 데이터의 압축 방식을 지정하는 헤더로, gzip, br (brotil), deflate (zlib) 등 어떤 알고리즘으로 압축했는지를 지정합니다. (Forbidden header로, 클라이언트 측에서 설정할 수 없고 서버측에서 설정하는 헤더 입니다.)
+
+개발자가 직접 데이터의 압축을 해제하지 않아도, 클라이언트(브라우저)에서 자동으로 데이터가 해제됩니다.
+
+```
+sequenceDiagram
+    participant C as 클라이언트
+    participant S as 서버
+    C->>S: HTTP 요청 (Accept-Encoding: gzip)
+    S->>C: HTTP 응답 (Content-Encoding: gzip)
+    Note over C: 클라이언트는 압축 해제
+    C->>C: 압축 해제된 데이터 처리
+```
+
+## dev/prod 환경에서, 네트워크 헤더가 달랐던 이유
+
+프로덕션 (s3)에 파일을 업로드할 때 별도의 헤더 처리를 해주지 않았기에, vite의 개발 환경에서 어떤 동작을 하고 있는지를 먼저 살펴봤습니다.
+
+찾아보니 비슷하게 깃허브에 등록된 이슈가 있고, [Dev server should send pre-compressed static files without Content-Encoding: gzip](https://github.com/vitejs/vite/issues/12266)
+
+직접 vite의 코드를 찾아봤는데, 개발 서버의 미들웨어 중 compression 라는 미들웨어에서 데이터의 형식에 따라 `Content-Encoding`을 지정하는 로직이 있었습니다.
+
+[vitejs/vite/packages/vite/src/node/server/middlewares/compression.ts](https://github.com/vitejs/vite/blob/main/packages/vite/src/node/server/middlewares/compression.ts#L54)
+
+```ts showLineNumbers
+export default function compression() {
+  const brotliOpts = (typeof brotli === 'object' && brotli) || {}
+  const gzipOpts = (typeof gzip === 'object' && gzip) || {}
+
+  // disable Brotli on Node<12.7 where it is unsupported:
+  if (!zlib.createBrotliCompress) brotli = false
+
+  return function viteCompressionMiddleware(req, res, next = noop) {
+    const accept = req.headers['accept-encoding'] + ''
+    const encoding = ((brotli && accept.match(/\bbr\b/)) ||
+      (gzip && accept.match(/\bgzip\b/)) ||
+      [])[0]
+
+    // ... 생략
+      if (compressible && cleartext && size >= threshold) {
+        res.setHeader('Content-Encoding', encoding)
+        res.removeHeader('Content-Length')
+```
+
+## 해결 방법
+
+개발 환경과 프로덕션 환경의 차이점을 없애기 위해서 아래 2가지 방법을 고민했습니다.
+
+1. 데이터 파일의 확장자를 바꿔준다.
+
+- dev 서버에서 자동으로 `Content-Encoding`을 지정하는 로직이 동작하지 않도록 `.gz`이 아닌, `.gzip` 등의 파일 확장자를 사용하는 방법입니다. (다만 gzip 데이터를 그대로 가져오기 때문에 `pako` 등을 이용하여 데이터의 압축을 해제해줘야 합니다.)
+
+2. 프로덕션 환경에서 헤더를 지정해준다.
+
+- 개발 환경과 동일하게 `Content-Encoding`을 `gzip`으로 지정해주는 방법입니다.
+
+코드 변경 없이 사용 가능한 (2) 방법을 적용했고, 배포시 데이터 파일에 `Content-Encoding`을 지정하는 방법을 배포 스트립트에 추가해서 해결했습니다.
+
+## 결론
+
+1. vite의 개발 환경에서는, 데이터의 확장자에 따라 Content-Encoding를 자동으로 지정해줍니다
+2. 이로 인해 데이터를 불러올 때, 개발 환경과 프로덕션 환경에서 괴리가 발생할 수 있습니다
+3. 네트워크 헤더를 동일하게 지정하거나, 개발 환경에서 헤더가 자동으로 지정되는 기능을 사용하지 않게 처리해서 해결 할 수 있습니다

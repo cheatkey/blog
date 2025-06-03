@@ -1,0 +1,238 @@
+import Image from "next/image";
+
+# React Router vs TanStack Router
+
+리액트 기반 새로운 프로젝트를 진행하게 되어 어떤 라우터를 쓸지 고민하면서 찾은 내용을 정리해봤습니다.
+
+SSR이 아닌 SPA 방식을 사용하기로 해서, SPA 렌더링을 기준으로 React Router와 TanStack Router의 구조와 특징을 비교해보았습니다.
+
+## React Router
+
+Declarative 방식만 존재하는 5버전 부터 사용했었는데요, 현재는 7버전까지 나오면서 업데이트가 많이 되었습니다.
+
+현재는 3가지 방식으로 구분된 사용 방식을 제공합니다. (Framework, Data, Declarative)
+
+Declarative는 기존에 사용되던 JSX 방식, Data는 6.4버전에서 추가된 라우트를 객체 형태로 관리하는 방식, Framework은 기존 SSR 프레임워크인 remix를 통합한 방식입니다.
+
+### Framework
+
+Remix는 같은 팀에서 개발된 SSR 프레임워크로, 현재는 React Router와 통합되어 있습니다. Remix 공식 문서에서도 React Router v7 사용을 안내하고 있으며 Vite 위에서 동작합니다. 라우트 파일을 모듈 단위로 구성하며, SPA, SSG, SSR 모두를 지원합니다.
+
+서버 데이터 로딩, action 등의 기능을 사용할 수 있고, 타입 안정성이 확보된 API를 제공합니다.
+
+공식 문서에서는 아래와 같은 경우에서 권장한다고 합니다.
+
+- SSR을 원하거나 추후 SSR을 도입할 가능성이 있는 경우
+- SSR 프레임워크에서 마이그레이션 하는 경우 (Remix, Next)
+- 혹은 React로 무엇인가를 만들고 싶은 경우 (기본적으로 권장)
+
+일반적으로는 `layout`, `route`등의 함수를 사용하여 라우터를 정의할 수 있고, `@react-router/fs-routes` 패키지를 사용해 파일 기반 라우팅도 가능합니다.
+
+```ts
+import {
+  type RouteConfig,
+  route,
+  index,
+  layout,
+  prefix,
+} from "@react-router/dev/routes";
+
+export default [
+  index("./home.tsx"),
+  route("about", "./about.tsx"),
+
+  layout("./auth/layout.tsx", [
+    route("login", "./auth/login.tsx"),
+    route("register", "./auth/register.tsx"),
+  ]),
+
+  ...prefix("concerts", [
+    index("./concerts/home.tsx"),
+    route(":city", "./concerts/city.tsx"),
+    route("trending", "./concerts/trending.tsx"),
+  ]),
+] satisfies RouteConfig;
+```
+
+#### Data
+
+`createBrowserRouter` API를 사용하여 객체 형태로 라우팅 경로를 정의하는 방식입니다.
+
+```ts
+createBrowserRouter([
+  {
+    path: "/",
+    Component: Root,
+    children: [
+      { index: true, Component: Home },
+      { path: "about", Component: About },
+      {
+        path: "auth",
+        Component: AuthLayout,
+        children: [
+          { path: "login", Component: Login },
+          { path: "register", Component: Register },
+        ],
+      },
+      {
+        path: "concerts",
+        children: [
+          { index: true, Component: ConcertsHome },
+          { path: ":city", Component: ConcertsCity },
+          { path: "trending", Component: ConcertsTrending },
+        ],
+      },
+    ],
+  },
+]);
+```
+
+`loader`, `action` 등의 API를 통해 데이터 로딩, 액션 처리, pending 상태 등을 구성할 수 있고, 일반적으로는 CSR(Client Side Rendering)로 동작합니다.
+
+추가 설정을 통해 SSR도 가능합니다. 공식 문서에서는 커스텀 프레임워크와 함께 사용할 수 있다고 안내하고 있고, 아래 기능을 수행하는 예제 코드고 제공합니다.
+
+- 라우트 객체를 만들고 `createStaticHandler()`로 핸들러를 생성
+- 서버에서 `query(request)`를 실행해 loader/action을 처리하고 context를 생성
+- 이후 `createStaticRouter()`와 `StaticRouterProvider`를 사용하여 SSR 렌더링을 수행
+- 결과적으로 HTML과 헤더를 조합한 후 `renderToString`으로 React 코드를 HTML로 렌더링
+- 클라이언트에서 hydration을 수행하게 됩니다.
+
+공식 문서에서는 아래와 같은 경우에서 권장한다고 합니다.
+
+- 이미 React Router v6.4에서 data 라우팅 방식을 사용 중이며 만족하는 경우
+- 데이터 기능은 필요하지만 번들링, 데이터, 서버 추상화에 대한 제어를 원하는 경우
+
+#### Declarative
+
+JSX를 사용하여 `<BrowserRouter>`, `<Routes>`, `<Route>` 컴포넌트로 라우팅을 정의하는 방식입니다. 데이터 로딩, 상태 관리 등은 수동으로 처리해야 합니다.
+
+```tsx
+<Routes>
+  <Route index element={<Home />} />
+  <Route path="about" element={<About />} />
+
+  <Route element={<AuthLayout />}>
+    <Route path="login" element={<Login />} />
+    <Route path="register" element={<Register />} />
+  </Route>
+
+  <Route path="concerts">
+    <Route index element={<ConcertsHome />} />
+    <Route path=":city" element={<City />} />
+    <Route path="trending" element={<Trending />} />
+  </Route>
+</Routes>
+```
+
+React Router를 가능한 한 단순하게 사용하고 싶거나, 6.4 미만 버전을 사용한 경우 적합하다고 합니다.
+
+## TanStack Router
+
+`TanStack Query`, `TanStack Table` 등 유명한 프로젝트 입니다. React와 Solid에서 사용가능한 라우터 라이브러리를 제공해서 한번 살펴보았습니다.
+
+가장 큰 특징은 라우팅 타입 추론을 제공합니다. 타입 추론을 지원하기 위해서 라우팅 경로 파일을 자동으로 만들고, 런타임에서 검증해야 하는 search, params는 zod로 schema validation + 타입 추론을 지원한다는게, 좋은 개발자 경험을 만들기 위해서 고민을 많이 한 프로젝트로 보였습니다.
+
+TanStack Router는 전통적인 의미의 프레임워크는 아니라고 설명합니다.
+클라이언트 렌더링에서는 TanStack Router를 사용하고, SSR을 위해서는 Tanstack Start를 사용하라고 합니다.
+(\*Tanstack Start: 번들링, 배포 및 서버 측 기능을 처리하기 위해 TanStack Router와 함께 사용할 수 있도록 설계된 프레임워크)
+
+다만 아직 Tanstack Start는 베타 버전이라, 아직 실무에서 도입하기는 적합하지 않아 보입니다.
+
+라우팅 방식은 세 가지를 제공합니다. 그 중에서도 파일 기반 라우팅을 가장 권장합니다.
+
+### 파일 기반 라우팅
+
+TanStack Router에서 권장하는 방식입니다.
+
+`routes` 폴더 안에 `.tsx` 파일을 넣어 라우팅 경로를 구성합니다. 폴더 구조 대신 파일 이름에 `.`을 포함해 경로를 표현할 수 있습니다. 예를 들어 `dashboard.users.route.tsx`는 `/dashboard/users` 경로를 의미합니다. (개인적으로 라우트 폴더가 깊어지는게 싫어서 마음에 드네요)
+
+라우터 파일 내부에서는 `createFileRoute` API를 사용해 라우트를 정의합니다. search 파라미터 validation, loader를 통한 데이터 로드 등도 이 안에서 처리할 수 있습니다.
+타입 추론을 위해서 파일 기반으로 라우팅을 해도 `createFileRoute` 코드를 써야합니다.
+
+```tsx
+export const Route = createFileRoute("/")({
+  component: HomeComponent,
+});
+```
+
+이 방식을 사용하면 라우팅 트리와 타입 정보가 담긴 `routeTree.gen.ts` 파일이 자동으로 생성되며, 해당 파일을 import해 라우터를 렌더링하게 됩니다.
+
+### 가상 파일 기반 라우팅
+
+`@tanstack/virtual-file-routes` 패키지를 사용하여 라우팅 경로와 실제 파일을 직접 선언합니다. 예시는 다음과 같습니다
+
+```ts
+import {
+  rootRoute,
+  route,
+  index,
+  layout,
+  physical,
+} from "@tanstack/virtual-file-routes";
+
+export const routes = rootRoute("root.tsx", [
+  index("index.tsx"),
+  layout("pathlessLayout.tsx", [
+    route("/dashboard", "app/dashboard.tsx", [
+      index("app/dashboard-index.tsx"),
+      route("/invoices", "app/dashboard-invoices.tsx", [
+        index("app/invoices-index.tsx"),
+        route("$id", "app/invoice-detail.tsx"),
+      ]),
+    ]),
+    physical("/posts", "posts"),
+  ]),
+]);
+```
+
+### 코드 기반 라우팅
+
+라우터 파일에서 `createRoute` API를 사용하여 라우팅 경로를 지정하는 방식입니다. `getParentRoute`, `path`, `component` 등의 props를 넘겨야 하며, 부모 라우터를 함께 전달하는 이유도 TypeScript 타입 추론 때문이라고 합니다.
+
+최종적으로는 모든 라우트를 하나의 트리로 합쳐서 `createRouter`에 넘겨야 합니다
+
+```ts
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  dashboardLayoutRoute.addChildren([
+    dashboardIndexRoute,
+    invoicesLayoutRoute.addChildren([invoicesIndexRoute, invoiceRoute]),
+    usersLayoutRoute.addChildren([usersIndexRoute, userRoute]),
+  ]),
+  expensiveRoute,
+  authPathlessLayoutRoute.addChildren([profileRoute]),
+  loginRoute,
+  pathlessLayoutRoute.addChildren([pathlessLayoutARoute, pathlessLayoutBRoute]),
+]);
+
+const router = createRouter({
+  routeTree,
+});
+```
+
+### 타입스크립트 타입 추론 및 타입 안전성
+
+TanStack Router는 타입스크립트 기반 추론을 전제로 설계되었습
+니다.
+
+<Image src="/images/router1.webp" width={600} height={500} />
+
+url search, params 등 런타임 영역에서는 `zod`를 사용해 스키마를 정의할 수 있으며, 지정한 스키마 외의 값은 허용되지 않도록 런타임 validation이 수행됩니다.
+
+<Image src="/images/router2.webp" width={600} height={500} />
+
+코드 내부에서 접근 가능한 영역에 대해서는 `.gen.ts` 파일을 통해 추론이 이루어지며, 라우터 코드 트리를 기반으로 각 라우트에 대한 타입 정보를 추출할 수 있습니다.
+
+```ts
+const route = createFileRoute("/dashboard.users")({
+  validateSearch: z.object({
+    tab: z.enum(["all", "active"]),
+  }),
+});
+```
+
+<Image src="/images/router4.webp" width={600} height={1000} />
+
+search도 json으로 자동으로 파싱되기 때문에 브라우저 URL API를 직접 다룰 필요 없이 안전한 타입의 데이터를 다룰 수 있다는 점이 편리합니다.
+
+<Image src="/images/router3.webp" width={600} height={1000} />

@@ -1,0 +1,520 @@
+---
+title: "리액트 19 베타 6가지 주요 업데이트 사용해보기"
+tags: ["react"]
+date: "2024/04/29"
+description: "리액트 19 베타에서 공개된 기능들을 사용해보고, 6가지 카테고리로 묶어서 정리해봤습니다."
+---
+
+2024년 4월 25일, 리액트 팀에서 [리액트 19 베타 버전을 공개](https://react.dev/blog/2024/04/25/react-19)했습니다.
+
+소개된 내용들을 사용해보면서, 중요한 내용 위주로 총 6가지의 카테고리로 묶어서 정리해봤습니다.
+
+1. Action
+2. Server
+3. use
+4. Enhanced HTML Tag Handling
+5. Preloading resources
+6. Custom element
+
+- 본문에서 사용된 코드는 https://github.com/cheatkey/react-beta-19 에서 확인하실 수 있습니다.
+
+# 0. Install React Beta 19
+
+리액트 베타 버전을 설치하고 싶다면 beta 태그로 리액트를 다운받으면 됩니다.
+
+```bash showLineNumbers
+yarn add react@beta react-dom@beta
+```
+
+추후 정식 릴리즈가 되면` @types/react`,` @types/react-dom` 를 설치하여 사용하면 되지만, 아직은 `package.json`의 `dependencies`와 `overrides`에 베타 버전을 사용한다고 지정해줘야 합니다.
+
+```json showLineNumbers
+{
+  "dependencies": {
+    "@types/react": "npm:types-react@beta",
+    "@types/react-dom": "npm:types-react-dom@beta"
+  },
+  "overrides": {
+    "@types/react": "npm:types-react@beta",
+    "@types/react-dom": "npm:types-react-dom@beta"
+  }
+}
+```
+
+그럼, 하나씩 살펴보겠습니다.
+
+# 1. Action
+
+리액트 19베타에서 데이터 변경이나 상태 업데이트를 위한 비동기 작업을 효과적으로 관리하기 위한 컨셉이 소개되었습니다. 리액트 앱에서는 사용자가 폼을 제출하여 데이터를 변경하고 그에 따라 상태를 업데이트하는 작업을 많이 수행하는데요, 이를 더욱 쉽게 사용하기 위한 업데이트가 되었습니다.
+
+- Pending State: API 요청과 같은 비동기 작업이 시작될 때 `pending` 상태를 자동으로 관리합니다
+
+- Optimistic Updates: `useOptimistic` 훅으로 서버에서 응답이 오기 전에 UI를 먼저 업데이트하는 낙관적 업데이트를 지원합니다.
+
+- Error Handling: 에러 발생 시 자동으로 오류를 처리하고, 필요한 경우 원래 상태로 되돌립니다.
+
+- Form Handling: React 19에서는 form 요소가 액션 함수를 action 속성을 통해 받을 수 있으며, 폼 제출이 성공적으로 완료되면 자동으로 폼을 리셋합니다. (참고: 수동으로 리셋하는 경우에는 `requestFormReset`를 사용할 수 있습니다.)
+
+지금까지는 수기로 작성하거나 써드파티 라이브러리를 사용하던 구현하던 기능들을 이제는 리액트에서 제공합니다.
+
+## 1.1 `useTransition`를 사용한 `pending` 관리
+
+`useTransition`은 UI 업데이트를 차단하지 않으면서 상태 업데이트를 처리할 수 있게 하는 훅인데요, 리액트 19 베타 업데이트에서 트랜지션에서 비동기 함수를 사용하여 `pending` 상태, 오류를 처리하는 기능이 업데이트 되었습니다.
+
+- useTransition이 없을 때
+  - 수기로 비동기 함수 전에 pending을 true로 설정하고, 끝났을 때 pending을 false로 설정
+
+```ts showLineNumbers {2,4}
+const handleSubmit = async () => {
+  setIsPending(true);
+  const error = await updateName(name);
+  setIsPending(false);
+  if (error) {
+    setError(error);
+    return;
+  }
+  redirect("/path");
+};
+```
+
+- useTransition을 사용할 때
+  - startTransition로 비동기 함수를 래핑하면 pending을 자동으로 관리
+
+```ts showLineNumbers {1,4}
+const [isPending, startTransition] = useTransition();
+
+const handleSubmit = () => {
+  startTransition(async () => {
+    const error = await updateName(name);
+    if (error) {
+      setError(error);
+      return;
+    }
+    redirect("/path");
+  });
+};
+```
+
+## 1.2 `useActionState`로 폼 액션 결과에 따라 UI 업데이트 하기
+
+액션을 더 쉽게 사용하기 위한 `useActionState` 훅이 추가되었습니다.
+
+사용 방법은 아래 예시 코드처럼 액션 (함수)를 작성하고 `useActionState`로 래핑하고, 두번째 인자에는 초깃값을 넣어줍니다.
+
+액션 결과 (상태), 액션 트리거 함수, `pending`을 관리해주기 때문에 별도의 상태를 정의해서 업데이트하거나, `pending` 상태를 업데이트하는 코드를 작성하지 않아도 됩니다.
+
+```ts showLineNumbers
+const action = async (previousState: string, formData: FormData) => {
+  // useActionState를 사용해서 pending 상태 관리 및 액션 결과 관리하기
+  console.log("previousState: ", previousState);
+  const value = formData.get("name") as string;
+  const response = await fetch(`/4/api`, {
+    method: "POST",
+    body: JSON.stringify({ name: value }),
+  });
+  const data = await response.json();
+  return data.name;
+};
+
+const FourthPage = ({}: FourthPageProps) => {
+  const [state, submitAction, isPending] = useActionState(action, "");
+
+  return (
+    <div>
+      <form action={submitAction}>
+      ...
+```
+
+다만 아직 베타라서 그런지, 제가 시도해보고 있는 `19.0.0-beta-94eed63c49-20240425` 버전에서는 useActionState가 export 되어 있지 않아서 실제로 사용해보지는 못했습니다.
+
+타입상으로만 정의되어 있어서 실제로 사용하려고 하면 `TypeError: (0 , react__WEBPACK_IMPORTED_MODULE_1__.useActionState) is not a function or its return value is not iterable` 에러가 발생합니다.
+
+## 1.3 `useFormStatus`로 폼 상태 접근하기
+
+하위 컴포넌트에서 폼의 상태에 접근해야 할 때가 있습니다. 일반적으로는 `context`를 사용해서, `pending` 상태나 폼의 데이터를 공유하곤 하는데요, `useFormStatus` 훅이 추가되어 form의 상태를 공유할 수 있습니다.
+
+\<form \/\> 태그가 `context.provider` 처럼 동작하고, `useFormStatus`이 `useContext` 처럼 동작한다고 이해하시면 편합니다.
+
+아래 예시 코드처럼 \<form \/\> 안에 들어갈 label, input, button 등을 별도의 컴포넌트로 분리해줍니다.
+
+`useFormStatus`를 사용 시, form 태그의 데이터에 접근하는 것 처럼 pending 상태 및 데이터에 접근할 수 있습니다.
+
+```tsx showLineNumbers
+// 부모 컴포넌트
+const Parent = () => {
+  // ...
+  return (
+    <form action={handleSubmit}>
+      <Form />
+    </form>
+  );
+};
+
+const Form = () => {
+  const { pending, data } = useFormStatus();
+  console.log("pending:", pending, "data:", data?.get("name")); // 부모 컴포넌트에서 handleSubmit가 실행되었을 때 pending 상태, 데이터를 가져올 수 있습니다.
+
+  return (
+    <>
+      <label htmlFor="name">Update Name:</label>
+      <input className="text-black" id="name" type="text" name="name" />
+      <button type="submit" disabled={pending}>
+        Submit
+      </button>
+    </>
+  );
+};
+```
+
+## 1.4 `useOptimistic`로 낙관적 업데이트 하기
+
+사용자에게 앱이 빠른 속도로 동작하는 것 처럼 보이기 위해, 비동기 통신이 완료되지 않아도 UI를 먼저 업데이트 할 수 있습니다.
+
+이를 낙관적 업데이트 라고 합니다. [tanstack query를 사용하셨던 분들이라면 더 익숙할 것 같습니다.](https://tanstack.com/query/v4/docs/framework/react/guides/optimistic-updates)
+
+낙관적 업데이트를 쉽게 구현해주는 훅이 추가되었습니다. 사용 방법도 간단한데요, `useOptimistic`에 2가지 인자를 넘겨줍니다.
+
+1. 상태를 저장하는 변수
+2. UI에 보여줄 값을 가공하는 함수
+
+   - 예를 들어 메시지를 보내는 기능처럼 문자열 배열을 합치는 경우라면 아래처럼 작성할 수 있습니다.
+
+   ```ts showLineNumbers
+   const [messages, setMessages] = useState<string[]>([]);
+   const [optimisticMessages, setOptimisticMessages] = useOptimistic(
+     messages,
+     (state: string[], newMessage: string) => [...state, newMessage] // 기존 상태에 새로 보내는 메시지를 합치기
+   );
+   ```
+
+이후 폼 제출 시 실행될 함수에서 API를 호출하기 전에 낙관적 업데이트로 UI에 보여줄 값을 먼저 설정해줍니다.
+
+통신이 완료 되거나 오류가 발생하면 useOptimistic의 첫번째 인자인 상태로 다시 전환하도록 되어 있어 별도의 처리를 하지 않아도 됩니다.
+
+```ts showLineNumbers {12}
+const [name, setName] = useState("");
+const [isPending, startTransition] = useTransition();
+const [optimisticName, setOptimisticName] = useOptimistic(
+  name,
+  (state: string, newName: string) => newName
+);
+
+const handleSubmit = async (formData: FormData) => {
+  const value = formData.get("name") as string;
+
+  startTransition(async () => {
+    setOptimisticName(value);
+
+    const response = await fetch(`/4/api`, {
+      method: "POST",
+      body: JSON.stringify({ name: value }),
+    });
+
+    const data = await response.json();
+
+    setName(data.name);
+  });
+};
+```
+
+# 2. Server
+
+원래 리액트는 프론트엔드 라이브러리로, 작성된 코드는 모두 브라우저 (클라이언트)에서만 실행되었습니다.
+
+하지만 이제 서버에서 컴포넌트를 처리할 수 있고 (Server Component), DB에 접근해 데이터를 쓰고 지울 수 있습니다 (Server Action)
+
+리액트에 관심있던 분들은 이미 소식을 접하거나 nextjs에서 사용해보셨을 것 같은데요, 이번 19버전 베타에서 RSC과 서버 액션이 업데이트 되었습니다.
+
+## 2.1 React Server Components
+
+리액트 서버 컴포넌트(React Server Components, 이하 RSC)는 서버에서 데이터 페칭과 렌더링 작업을 완료하고, 그 결과를 HTML 형태로 클라이언트로 스트리밍하는 기술입니다.
+
+nextjs에서 제공하는 [Understanding React Server Components](https://vercel.com/blog/understanding-react-server-components)에서 설명하는 예시를 살펴보면,
+
+RSC가 없을 때 블로그를 만들어야 한다면 데이터를 불러오는 구조는 아래와 같습니다.
+
+- 블로그 글 가져오기
+
+  - (Nextjs) `getStaticProps`를 통해 페이지 단위로 데이터를 가져오는 방법
+
+- 댓글 가져오기
+
+  - 컴포넌트에서 useEffect를 사용해 데이터를 불러오는 방법
+
+- 댓글 작성하기
+  - 컴포넌트에서 Post 요청을 보내서 서버에 데이터를 전달하기
+
+![예제](/images/without-react.avif)
+
+RSC를 사용한다면 서버에서 API를 만들고, 클라이언트에서 이를 가져가는 구조가 아니라 서버 클라이언트에서 직접 데이터에 접근 가능 합니다.
+
+- 블로그 글 가져오기
+  - RSC에서 데이터에 바로 접근
+- 댓글 가져오기
+  - RSC에서 데이터에 바로 접근
+- 댓글 작성하기
+  - 별도 API를 만들지 않고 후술할 `server action`을 통해 데이터 추가 가능
+
+![예제](/images/with-rsc.avif)
+
+RSC는 서버에서 처리되는 컴포넌트로 서버 데이터에 바로 접근 가능하며 비동기 (async) 컴포넌트를 지원합니다.
+
+RSC는 서버에서 처리되기 때문에 데이터베이스에 직접 접근할 수도 있고, 파일 시스템에 접근할 수도 있습니다.
+
+아래 코드는 서버에서 외부 API (jsonplaceholder) 데이터를 받아와 보여주는 비동기 컴포넌트 예시입니다.
+
+```tsx showLineNumbers
+const fetchPost = async (
+  id: number
+): Promise<{ userId: number; id: number; title: string; body: string }> =>
+  fetch(`https://jsonplaceholder.typicode.com/posts/${id}`).then((res) =>
+    res.json()
+  );
+
+const SecondPage = async ({}: SecondPageProps) => {
+  const data = await fetchPost(1); // 외부 API를 호출해서 받아온 데이터를 보여주기
+  // const data = await prisma.post.findMany(); // 서버에서 처리 되기 때문에 데이터베이스에 직접 접근할 수도 있습니다.
+
+  return (
+    <section>
+      <h1>title is {data.title}</h1>
+      <button
+      // ❌ onClick={() => { // 브라우저가 아닌 서버에서 실행되기 때문에 이벤트는 처리할 수 없습니다. 이벤트 처리는 클라이언트 컴포넌트에서만 가능합니다.
+      //   alert("click");
+      // }}
+      ></button>
+    </section>
+  );
+};
+```
+
+## 2.2 Server Actions
+
+서버 액션은 컴포넌트에서 호출할 수 있는 서버에서 실행되는 비동기 함수로, 이를 통해 데이터베이스 작업과 같은 서버에서 실행되는 로직을 처리합니다.
+
+예를 들면 폼에 작성한 데이터를 DB에 저장시키고 싶다고 할 때 ,지금까지는 서버에서 API를 구축해 폼 데이터를 저장시키는 코드를 작성하고 클라이언트에서는 서버로 API를 호출하는게 일반적이었는데요, `Server Action`은 이러한 과정을 생략하고 DB에 접근할 수 있습니다.
+
+사용할 때는 `"use server"` 지시어를 사용해서 함수를 작성하고, 이를 `form`의 `action`에 연결해주면 됩니다.
+
+아래 코드는 `Server Action`을 사용해서 폼에 작성한 데이터를 저장하는 예시 코드입니다. https://github.com/cheatkey/react-beta-19/blob/main/src/app/3/page.tsx 에서 확인하실 수 있습니다.
+
+```tsx showLineNumbers
+interface ThirdPageProps {}
+
+const ThirdPage = ({}: ThirdPageProps) => {
+  const handleSubmit = async (formData: FormData) => {
+    "use server"; // 서버 액션으로 서버에서 실행되는 로직이라고 지정해줍니다.
+    const db = await getDB(); // lowdb 가져오기
+
+    db.data.push({
+      name: formData.get("name"),
+      email: formData.get("email"),
+      message: formData.get("message"),
+    });
+    await db.write(); // DB에 데이터 쓰기
+  };
+
+  return (
+    <form action={handleSubmit} className="flex flex-col gap-2">
+      <label htmlFor="name">Name:</label>
+      <input className="text-black" type="text" id="name" name="name" />
+
+      <label htmlFor="email">Email:</label>
+      <input className="text-black" type="email" id="email" name="email" />
+
+      <label htmlFor="message">Message:</label>
+      <textarea className="text-black" id="message" name="message" />
+
+      <button type="submit">Submit</button>
+    </form>
+  );
+};
+```
+
+# 3. use
+
+## 3.1 use란 무엇인가?
+
+use의 존재는 [리액트의 신규 훅, "use"](https://yceffort.kr/2023/06/react-use-hook) 이라는 글을 읽고 처음 알게되었는데요, 간단히 말하면 Promise와 context 값을 읽을 수 있는 `API` 입니다.
+
+```tsx showLineNumbers
+const value = use(resource);
+```
+
+`use`안에 promise를 넣으면 `promise`가 `resolve` 될 때 까지는 `suspense`가 렌더링 되고, `resolve` 된 후 컴포넌트가 렌더링 됩니다.
+
+일바적인 훅과는 조금 다른데요, 컴포넌트 상단에 위치 해야 한다거나, 조건부로 사용할 수 없다는 등 일반적으로 훅이 가지고 있는 제약 조건을 따르지 않습니다.
+
+## 3.1 use(Promise) 사용하기
+
+사용 방법은 간단합니다. use안에 비동기 함수를 넣어주면 됩니다.
+
+props로 id를 받아 id가 짝수라면 데이터를 보여주지 않고, 홀수라면 jsonplaceholder에서 데이터를 조회해서 보여주는 예시 코드입니다.
+
+```tsx showLineNumbers {19,23,24}
+import React, { use } from "react";
+
+interface JsonPlaceHolderProps {
+  id: number;
+}
+
+const fetchPost = async (
+  id: number
+): Promise<{ userId: number; id: number; title: string; body: string }> =>
+  fetch(`https://jsonplaceholder.typicode.com/posts/${id}`).then((res) =>
+    res.json()
+  );
+
+const JsonPlaceHolder = ({ id }: JsonPlaceHolderProps) => {
+  if (id % 2 === 0) {
+    return <p>id가 짝수인 경우에는 데이터를 보여주지 않습니다.</p>;
+  }
+
+  const data = use(fetchPost(id));
+
+  return (
+    <div>
+      <h3>{data.title}</h3>
+      <p>{data.body}</p>
+    </div>
+  );
+};
+
+export default JsonPlaceHolder;
+```
+
+- 19번 라인에서는 if문 아래에서 use를 사용했습니다.
+
+다른 리액트 훅 (useState, useEffect 등)은 컴포넌트 상단에 위치해야 하며, 조건부로 사용할 수 없는데요. use는 블록 단위나 조건부로, 루프문 안에서도 사용 가능합니다.
+
+- 23,24번 라인에서는 데이터에 바로 접근했습니다.
+
+Promise가 resolve되기 전에는 Suspense가 렌더링 되고, resolve된 후에 컴포넌트가 렌더링 되기 때문에 컴포넌트 내부에서는 `await` 구문을 사용한 것 처럼 데이터에 접근할 수 있습니다.
+
+## 3.2 use(Context) 사용하기
+
+Promise뿐 아니라 Context에도 접근할 수 있습니다. 가져오는 데이터는 `useContext`를 사용하는 것과 동일하지만 훅의 제약조건을 신경쓰지 않아도 된다는 점이 간편합니다.
+
+```tsx showLineNumbers {2}
+import ThemeContext from "./ThemeContext";
+const theme = use(ThemeContext);
+```
+
+# 4. Enhanced HTML Tag Handling
+
+리액트 컴포넌트에서 HTML 태그를 더 자유롭게 다룰 수 있도록 업데이트 되었습니다.
+
+- 문서 메타데이터 태그(\<title\>, \<link\>, \<meta\>)를 컴포넌트 내에서 직접 렌더링할 수 있도록 지원합니다. 컴포넌트에서 해당 태그들을 렌더링 하면, 자동으로 문서의 head 섹션으로 이동됩니다.
+  - 기존에는 [Next.js - \<Head \/\>](https://nextjs.org/docs/pages/api-reference/components/head), [React Helment](https://github.com/nfl/react-helmet)을 사용해서 구현하던 기능이었는데요, 이제는 간편하게 컴포넌트에서 렌더링하면 적용됩니다.
+- 스타일시트를 로드할 수 있습니다. `precedence` 속성으로 DOM내에서 스타일시트의 삽입 순서를 결정해 우선순위를 조절할 수 있으며, 스타일 시트가 로드되는 동안 컴포넌트는 일시 중단 됩니다.
+- 비동기 스크립트를 로드할 수 있습니다. 중복을 방지하기 때문에 여러 컴포넌트에서 렌더링해도 한번만 로드 후 실행됩니다.
+
+아래 코드는 메타데이터 태그 / 스타일시트 로드 / 비동기 스크립트를 로드하는 예시 코드입니다.
+
+```tsx showLineNumbers {5, 11, 16}
+return (
+  <section className="flex flex-col gap-8">
+    <section className="flex flex-col gap-2">
+      <h1>Support for Document Metadata</h1>
+      <title>hello world</title>
+      <p>title is hello world</p>
+    </section>
+
+    <section className="flex flex-col gap-2">
+      <h1>Support for stylesheets</h1>
+      <link rel="stylesheet" href="./text.css" precedence="default" />
+    </section>
+
+    <section className="flex flex-col gap-2">
+      <h1>Support for async scripts</h1>
+      <script async={true} src="./async-js.js" />
+    </section>
+  </section>
+);
+```
+
+# 5. Preloading resources
+
+웹 성능을 최적화 하기 위한 리소스 힌트를 이제 함수로 호출할 수 있습니다. [`preload`에 대해서는 mdn을 참고해주세요.](https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/rel/preload)
+
+마찬가지로 컴포넌트 내부에서 함수 호출 시 \<head\>에서 렌더링 됩니다. 더 다이나믹하고 세세하게 리소스를 관리할 수 있게 된 것 같습니다.
+
+- `preload`: 특정 리소스가 우선순위가 높다고 브라우저에 알려줍니다.
+- `preinit`: HTML 스펙이 아닌 리액트에서 제공하는 기능으로, 스크립트나 시타일시트 리소스를 미리 다운로드 한 후 실행합니다.
+- `prefetchDNS`: 특정 도메인에 대한 `DNS` 조회를 먼저 수행해서, 나중에 도메인에 리소스를 요청할 때 DNS 조회 시간을 줄입니다.
+- `preconnect`: `prefetchDNS`보다 한단계 더 나아가 `DNS`조회 뿐 아니라, 리소스를 가져오기 위한 연결을 설정합니다. (`TCP` 핸드셰이크와 `TLS` 협상 등)
+
+아래 코드는 이미지를 `preload` 하는 예시 코드입니다.
+
+```tsx showLineNumbers {7}
+const [show, setShow] = useState(false);
+
+return (
+  <>
+    <button
+      onClick={() => {
+        preload("https://placehold.co/600x400.png", { as: "image" });
+      }}
+      className="text-white bg-gray-800 hover:bg-gray-900 focus:outline-none focus:ring-4 focus:ring-gray-300 font-medium rounded-full text-sm px-5 py-2.5 me-2 mb-2 dark:bg-gray-800 dark:hover:bg-gray-700 dark:focus:ring-gray-700 dark:border-gray-700"
+    >
+      preloading
+    </button>
+
+    <button
+      onClick={() => {
+        setShow(true);
+      }}
+    >
+      get Image
+    </button>
+
+    {show && <img src={"https://placehold.co/600x400.png"} />}
+  </>
+);
+```
+
+preload 후 이미지를 가져와보면, preload 버튼 클릭시 이미지를 요청하고 이후에는 이미지를 추가로 요청하지 않는 것을 볼 수 있습니다. (\*개발 도구에서 "캐시 사용 중지"가 체크되어 있다면 해제해주세요)
+
+# 6. Custom element
+
+기존 리액트에서는 React가 인식하지 못하는 속성을 properties가 아닌 attributes으로 처리했기 떄문에, 커스텀 엘리먼트 사용이 어려웠다고 합니다.
+
+- attributes: HTML 문서의 구조를 정의하기 위한 속성입니다. (예: `type="text"`, `value="hello"`)
+
+- properties: 자바스크립트 객체의 속성으로, 자바스크립트로 동적으로 변경할 수 있습니다. (예: input의 `value`)
+
+하지만 리액트 19에서 custom element를 사용할 수 있도록 업데이트 되었습니다.
+
+custom element를 사용하는 예시 코드는 아래와 같습니다.
+
+```tsx showLineNumbers
+class UserProfile extends HTMLElement {
+  ...
+}
+customElements.define("user-profile", UserProfile);
+
+const Component = () => {
+  const [name, setName] = useState("John Doe");
+  return (
+    <>
+      <input
+        className="text-black"
+        onChange={(e) => setName(e.target.value)}
+        value={name}
+      />
+      <user-profile name={name} email="john.doe@example.com"></user-profile>
+    </>
+  );
+}
+```
+
+# 7. Other Features
+
+위에서 소개드린 업데이트 외에도, 여러 개선이 이루어졌습니다.
+
+- [`ref`를 props로 넘길 수 있도록 변경 (기존에 해당 역할을 하던 `forwardRef`는 더이상 사용하지 않고 제거될 계획이라고 합니다)](https://react.dev/blog/2024/04/25/react-19#ref-as-a-prop)
+- [`ref` 콜백 함수에서 클린업 함수를 지원](https://react.dev/blog/2024/04/25/react-19#cleanup-functions-for-refs)
+- [hydration errors 리포트 개선](https://react.dev/blog/2024/04/25/react-19#diffs-for-hydration-errors)
+- [에러 리포트 개선](useDeferredValue)
+- [\<Context.Provider\> 대신 \<Context\> 형태로 context api를 사용하도록 변경](https://react.dev/blog/2024/04/25/react-19#context-as-a-provider)
+- [`useDeferredValue`에 초기 값 지정 가능](https://react.dev/blog/2024/04/25/react-19#use-deferred-value-initial-value)
