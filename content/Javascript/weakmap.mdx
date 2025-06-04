@@ -1,12 +1,12 @@
 ---
-title: "weakmap에 대해 알아보고 메모리 해제 확인해보기"
+title: "weakmap 약한 참조 알아보기"
 tags: ["javascript"]
 date: "2024/05/02"
 description: "weakmap에 대해 알아보고, Map과 비교해 메모리 누수 이슈가 없는지 확인하는 등 일반적인 유즈케이스를 살펴봅니다."
 icon: "javascript"
 ---
 
-# WeakMap
+# weakmap 약한 참조 알아보기
 
 `WeakMap`이란 객체를 키로 사용하며, 키로 사용된 객체가 다른 곳에서 참조되지 않을 때 자동으로 가비지 컬렉션 될 수 있는 자바스크립트의 자료구조 입니다.
 
@@ -15,8 +15,9 @@ icon: "javascript"
 ## Map과 차이점
 
 - 키는 객체만 사용할 수 있습니다. 문자열이나 숫자는 사용할 수 없습니다.
-- `set`4가지 메소드만 사용할 수 있습니다.
-  - `size`로 몇 개의 데이터를 가지고 있는지 확인하거나 순회를 돌기 위해서는 객체가 계속 메모리를 차지(강한 참조)하고 있어야 하기 때문입니다.
+
+- 기존 `Map`과는 다르게 `get`, `set`, `delete`, `has` 4개의 메소드만 사용할 수 있습니다.
+  - `size`로 몇 개의 데이터를 가지고 있는지 확인하거나 키를 순회하는 등을 위해서는 객체가 계속 메모리를 차지(강한 참조)하고 있어야 하지만 `Weakmap`은 약한 참조를 사용하기 때문입니다.
 
 ```ts showLineNumbers
 const weakMap = new WeakMap();
@@ -38,8 +39,6 @@ weakMap.has(obj1); // false
 console.log(obj1); //{key: 'value'}
 ```
 
-즉, `WeakMap`으로는 정확한 크기를 확인하거나 순회할 방법이 없습니다.
-
 ## 약한 참조
 
 약한 참조란, 해당 객체가 다른 곳에서 더 이상 사용되지 않는다면 가비지 컬렉터에 의해 자동으로 메모리에서 제거될 수 있도록 하는 참조입니다.
@@ -58,11 +57,11 @@ console.log(map); // Map(1) { { name: 'hello' } => 1 } (데이터가 남아있�
 
 이는 사용하지 않는 데이터이지만, 메모리에는 존재하게 되어 메모리 누수 문제를 일으킬 수 있습니다.
 
-# USE CASE
+# 언제 `WeakMap`을 사용할까?
 
 실제로 `WeakMap`을 사용하는 사례를 보면서, 언제/왜 사용하는지 알아보겠습니다.
 
-## 1. 메모리 누수 방지
+## 메모리 누수 방지
 
 카드 UI를 DOM에 추가하고, 추가 데이터를 `Map`에 저장하는 예제 입니다.
 
@@ -174,18 +173,48 @@ DOM에서는 제거 되었지만, `Map`에는 데이터가 남아 메모리 누�
 
 `Dom`에 추가적인 데이터를 저장할 때 `Dom`이 삭제되면 데이터가 같이 삭제되기를 원한다면 `WeakMap`을 사용할 수 있습니다.
 
-## 2. 캐시
+### Map 메모리 확인해보기
 
-`key`로 지정한 객체가 더 이상 참조되지 않게 되면 메모리가 해제 되는 특성으로 캐싱시에도 유용합니다.
+메모리 사용량 뿐 아니라, 개발자 도구의 메모리 탭에서 실제로 변수가 할당되는 것도 확인할 수 있습니다.
+
+![예제](/images/memory_map1.png)
+
+![예제](/images/memory_map2.png)
+
+![예제](/images/memory_map3.png)
+
+카드 UI를 생성해 총 5개의 변수를 할당했습니다. 이제 삭제해보면서 메모리를 확인해보면,
+
+![예제](/images/memory_map4.png)
+
+![예제](/images/memory_map5.png)
+
+UI 자체는 돔에서 제거되었지만 `Map`에 강한 참조로 연결되어 있기 때문에, 카드 UI를 삭제했음에도 메모리에 변수가 남아있는것을 볼 수 있습니다.
+
+### WeakMap 메모리 확인해보기
+
+먼저 카드 UI를 5개 생성했을 때의 메모리를 보면,
+
+![예제](/images/memory_weakmap1.png)
+
+이후 3개 카드 UI를 삭제해보면 그만큼 삭제되어 메모리에는 2개의 값만 남아 있습니다.
+
+![예제](/images/memory_weakmap2.png)
+
+반면 `WeakMap`의 경우에는 약한 참조를 사용하기 때문에, 돔에서 카드 UI가 제거되면 더 이상 메모리에 값이 남아있자 않습니다.
+
+## 캐시
+
+`key`로 지정한 객체가 더 이상 참조되지 않게 되면 메모리가 해제 되는 특성으로 캐싱시에 유용합니다.
 
 ```ts showLineNumbers
 let cache = new WeakMap();
 
-function process(obj) {
+function computeSumWithCache(obj) {
   if (!cache.has(obj)) {
     console.log("계산");
-    let result = obj.a + obj.b + obj.c;
-    cache.set(obj, result);
+    const sum = obj.a + obj.b + obj.c;
+    cache.set(obj, sum);
   }
 
   console.log("캐시 반환");
@@ -200,9 +229,23 @@ let obj = {
 
 // 계산
 // 캐시 반환
-let result1 = process(obj);
+let result1 = computeSumWithCache(obj);
 // 캐시 반환
-let result2 = process(obj);
+let result2 = computeSumWithCache(obj);
 obj = null;
-// cache에서 key인 obj가 참조할 수 없게 되었으므로, key가 obj인 데이터 삭제
+// obj가 null 처리되면 GC에 의해 WeakMap에서 해당 엔트리 자동 제거됨
 ```
+
+lodash의 [memorize](https://lodash.com/docs/#memoize) 함수에서도 `WeakMap`을 사용할 수 있습니다.
+
+```ts
+_.memoize.Cache = WeakMap;
+```
+
+## Vue
+
+DOM이 삭제되었을 때 참조를 해제하지 않아도 메모리 누수를 방지할 수 있다는 점에서 Vue 구현에서도 사용된다고 합니다.
+
+[Vue에서 반응형 작동 방식](https://ko.vuejs.org/guide/extras/reactivity-in-depth#how-reactivity-works-in-vue) 에서는 반응형 객체의 속성 접근을 추적하기 위해 전역 WeakMap을 사용해 객체별 의존성 맵을 관리한다고 설명합니다.
+
+이 WeakMap은 객체를 키로 사용하므로 참조가 끊기면 자동으로 GC 대상이 되어 메모리 누수를 방지할 수 있기 때문에, Proxy로 감지하고 WeakMap으로 추적해 메모리 효율성과 정확한 이펙트 실행이 가능하다고 합니다.
