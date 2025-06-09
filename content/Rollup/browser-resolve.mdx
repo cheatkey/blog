@@ -1,0 +1,106 @@
+# Rollup에서 서버용 코드가 번들에 들어가는 현상 트러블슈팅
+
+사내 공통 라이브러리를 Rollup으로 번들링하며 개발하던 중, 브라우저 환경에서 런타임 오류가 발생하는 문제가 있어 관련 내용을 정리해봤습니다.
+
+## 문제 상황
+
+공통 라이브러리를 번들링 후 사용하는 과정에서, axios를 사용하는 코드에서 오류가 발생하였고 확인해 본 결과 번들에 Node.js 환경에서 돌아가는 코드가 포함되어 있었습니다.
+
+process.stderr.fd와 import('tty')는 브라우저에서는 존재하지 않기 때문에 브라우저 환경에서 이 코드가 실행되어 런타임 에러가 발생한걸로 보입니다.
+
+![error image](/images/rollup-axios-node.png)
+
+개발하는 과정에서는 문제가 없었는데요, 스토리북은 기본적으로 Webpack 기반으로 동작하기 때문에 axios와 같은 패키지를 해석할 때 package.json의 browser 필드를 우선적으로 참조하고, rollup은 Node.js 환경의 코드가 포함되어 오류가 발생했던 것으로 추측했습니다.
+
+문제가 될만한 지점을 수정하면서 번들된 결과물에서 process.env 또는 require('http') 등 Node.js 전용 코드가 포함되었는지 직접 확인하면서 디버깅을 했습니다.
+
+## Axios exports 확인하기
+
+먼저 axios에서 환경별로 어떻게 `exports` 필드가 설정되어 있는지 먼저 확인해봤습니다.
+
+(\*`exports` 필드는 package.json에서 모듈을 외부에 어떻게 노출할지를 제어하는 공식 설정입니다. 특정 경로나 조건(import, require, browser 등)에 따라 어떤 파일이 import 대상이 될지 정의합니다.)
+
+```json showLineNumbers
+{
+  "exports": {
+    ".": {
+      "types": {
+        "require": "./index.d.cts",
+        "default": "./index.d.ts"
+      },
+      "browser": {
+        "require": "./dist/browser/axios.cjs",
+        "default": "./index.js"
+      },
+      "default": {
+        "require": "./dist/node/axios.cjs",
+        "default": "./index.js"
+      }
+    },
+    "./lib/adapters/http.js": "./lib/adapters/http.js",
+    "./lib/adapters/xhr.js": "./lib/adapters/xhr.js",
+    "./unsafe/*": "./lib/*",
+    "./unsafe/core/settle.js": "./lib/core/settle.js",
+    "./unsafe/core/buildFullPath.js": "./lib/core/buildFullPath.js",
+    "./unsafe/helpers/isAbsoluteURL.js": "./lib/helpers/isAbsoluteURL.js",
+    "./unsafe/helpers/buildURL.js": "./lib/helpers/buildURL.js",
+    "./unsafe/helpers/combineURLs.js": "./lib/helpers/combineURLs.js",
+    "./unsafe/adapters/http.js": "./lib/adapters/http.js",
+    "./unsafe/adapters/xhr.js": "./lib/adapters/xhr.js",
+    "./unsafe/utils.js": "./lib/utils.js",
+    "./package.json": "./package.json"
+  }
+}
+```
+
+axios의 설정에서는 문제 없이 `exports.browser` 필드가 정의 되어 브라우저용 모듈의 경로가 지정되어 있어서, 문제가 발생한건 `rollup` 설정이라고 생각해 라이브러리를 참조하는 모듈을 살펴보았습니다.
+
+번들링 시 `@rollup/plugin-node-resolve`를 사용하고 있었는데요, `resolve` 함수의 `browser`값이 기본 false로 되어 있어서 그렇습니다.
+
+즉, `axios` 라이브러리에는 `exports.browser` 필드가 정의되어 있지만, Rollup에서 라이브러리를 번들링할 때 기본적으로 `default` 필드를 우선적으로 사용하기 때문에 Node.js 전용 코드가 번들에 포함된 것입니다.
+
+## 기본적으로 브라우저용 모듈을 참조하도록 설정하기
+
+번들링 시 Node.js 코드가 번들에 포함되지 않도록 `@rollup/plugin-node-resolve`의 `resolve` 함수에 browser: true 옵션을 설정하였습니다.
+
+> browser (Type: Boolean, Default: false)
+
+> 이 옵션이 true이면, 이 플러그인은 package.json 내의 browser 모듈 해석 규칙을 사용하도록 설정하며, exports 조건에 browser가 포함되어 있지 않으면 이를 자동으로 추가합니다. 이로 인해 exports 필드 내의 browser 조건부 분기가 적용됩니다.
+> 옵션을 false로 설정하면, 패키지 파일 내의 모든 browser 필드는 무시됩니다.
+> 대안으로는 mainFields와 exportConditions 옵션 모두에 'browser' 값을 직접 추가하는 방법도 있지만, 이 browser 옵션이 더 높은 우선순위를 갖습니다.
+
+```js showLineNumbers
+import resolve from "@rollup/plugin-node-resolve";
+
+resolve({
+  browser: true,
+});
+```
+
+기본적으로 브라우저용 모듈을 사용하도록 설정해서 Rollup이 `exports.browser` 엔트리를 우선적으로 선택하게 되어 런타임 에러도 일어나지 않게 되었습니다.
+
+## 부수 이슈: react-error-boundary import 실패
+
+`browser: true` 설정 이후, react-error-boundary에서 다음과 같은 오류가 발생하였습니다.
+
+```text showLineNumbers
+Error: 'ErrorBoundary' is not exported by node_modules/react-error-boundary/dist/react-error-boundary.umd.js
+```
+
+문제의 원인은 이 패키지의 "browser" 필드가 UMD 형식의 파일을 가리키고 있었기 때문입니다.
+
+```json showLineNumbers
+"main": "dist/react-error-boundary.cjs.js",
+"module": "dist/react-error-boundary.esm.js",
+"browser": "dist/react-error-boundary.umd.js"
+```
+
+UMD 형식은 Rollup의 ESM import 방식과 호환되지 않기 때문에 오류가 발생하였습니다.
+
+[UMD version can be inadvertently tree-shaken out because sideEffects is set to false](https://github.com/bvaughn/react-error-boundary/issues/108) 깃허브 이슈에서 v4 버전에서 업데이트 되었다는 내용을 찾아서 패키지를 업데이트 해서 해결했습니다.
+
+## 결론
+
+롤업의 `@rollup/plugin-node-resolve`는 기본적으로 `browser` 설정이 `false`로 되어 있고, 이에 따라 참조하는 라이브러리의 `exports` 필드의 `default` 가 서버용 모듈 경로를 가르킨다면, 브라우저 환경에서 런타임 에러가 발생합니다.
+
+이 경우 라이브러리를 참조할 때 `browser` 엔트리를 참조할 수 있도록 롤업을 설정해줘야 합니다.
