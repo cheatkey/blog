@@ -35,8 +35,10 @@ export const metadata = {
   metadataBase: new URL("https://your-blog-url.com"),
 };
 
-const navbar = <Navbar logo={<b>Nextra</b>} />;
-const footer = <Footer>MIT {new Date().getFullYear()} © Nextra.</Footer>;
+const navbar = <Navbar logo={<b>Frontend Atelier</b>} />;
+const footer = (
+  <Footer>MIT {new Date().getFullYear()} © Frontend Atelier.</Footer>
+);
 
 export default async function RootLayout({
   children,
@@ -54,6 +56,9 @@ export default async function RootLayout({
       <body>
         <Layout
           darkMode={false}
+          nextThemes={{
+            defaultTheme: "light",
+          }}
           banner={<></>}
           navbar={navbar}
           pageMap={await getPageMap()}

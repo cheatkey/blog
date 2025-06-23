@@ -21,7 +21,7 @@ const PostBadge = ({ children, href }: PostBadgeProps) => {
       },
     },
     hover: {
-      scale: 130,
+      scale: 150,
       transition: {
         duration: 0.5,
         ease: [0.42, 0, 1, 1],

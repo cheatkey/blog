@@ -64,24 +64,29 @@ const AnimatedText = () => {
         </section>
 
         <section className="flex flex-col gap-2">
+          <h1 className="text-[1.8rem] text-zinc-700 font-semibold tracking-[-0.5px] p-0">
+            # Featured Posts
+          </h1>
           <h2 className="text-[1.5rem] text-zinc-700 font-semibold tracking-[-0.5px]">
-            # Typescript
+            ## Typescript
           </h2>
           예측 가능하고 안전한 코드를 만들기 위해 타입스크립트를 적극적으로
           사용하며, 타입 안정성과 응집도를 높이기 위한 구조를 고민합니다.
           <div className="flex flex-col gap-2">
-            <PostBadge href="">
-              Electron IPC 통신에서 타입 안전성을 확보하고
+            <PostBadge href="/Typescript/electron-type-safe">
+              Electron IPC에서 타입 안정성 확보하기
             </PostBadge>
-            <PostBadge href="">
+            <PostBadge href="/Typescript/modal">
               모달의 인자와 반환값을 추론할 수 있는 타입 기반 모달 시스템
             </PostBadge>
-            <PostBadge href="">useReducer 메소드 타입 자동으로 추론</PostBadge>
-            <PostBadge href="">
-              zod로 json schema를 자동으로 만드는 방법
+            <PostBadge href="/Typescript/user-reducer-typescript">
+              useReducer 메소드 타입 자동으로 추론
             </PostBadge>
-            <PostBadge href="">
-              타입이 추론 되는 라우터 직접 구현해보기
+            <PostBadge href="/Productivity/zod-json-schema-manage-system">
+              Zod를 이용한 Json Schema 공유 시스템 만들기
+            </PostBadge>
+            <PostBadge href="/Typescript/typed-router">
+              타입 추론 가능한 라우터 직접 만들어보기
             </PostBadge>
           </div>
         </section>
@@ -93,10 +98,19 @@ const AnimatedText = () => {
           다양한 상황에서 발생한 문제를 정리하고, 그 원인과 해결 과정을
           기록해두었습니다.
           <div className="flex flex-col gap-2">
-            <PostBadge href="">대규모 비동기 다루기</PostBadge>
-            <PostBadge href="">Vite 사전 번들링 시 실패</PostBadge>
-            <PostBadge href="">모바일 가상 키보드</PostBadge>
-            <PostBadge href="">롤업 번들링</PostBadge>
+            <PostBadge href="/Javascript/promise">
+              대규모 비동기 작업 안전하게 처리하기
+            </PostBadge>
+            <PostBadge href="/Vite/vite-pre-bundle-server-module">
+              vite 사전 번들링 실패 트러블 슈팅
+            </PostBadge>
+            <PostBadge href="/Mobile/virtualKeyboard">
+              모바일 가상키보드 탐지하기
+            </PostBadge>
+            <PostBadge href="/Rollup/browser-resolve">
+              Rollup 브라우저용 코드 번들링 시, 서버용 코드가 포함되는 이슈
+              트러블슈팅
+            </PostBadge>
           </div>
         </section>
 
