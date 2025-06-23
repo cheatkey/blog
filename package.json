@@ -7,9 +7,11 @@
     "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "typecheck": "npx tsc --noEmit"
   },
   "dependencies": {
+    "motion": "^12.18.1",
     "next": "15.3.1",
     "nextra": "nextra@4.3.0-alpha.21",
     "nextra-theme-docs": "nextra@4.3.0-alpha.21",

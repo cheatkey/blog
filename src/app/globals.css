@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 article p {
   word-break: keep-all;
 }
@@ -13,6 +15,9 @@ article img {
   box-shadow: none;
 }
 
-html, body {
-  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+html,
+body {
+  font-family: "Pretendard Variable", Pretendard, -apple-system,
+    BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI",
+    "Apple SD Gothic Neo", "Noto Sans KR", sans-serif;
 }

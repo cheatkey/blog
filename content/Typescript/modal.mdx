@@ -46,6 +46,20 @@ import Image from "next/image";
 
 <Image src={"/images/modalType.svg"} width={2000} height={2000} />
 
+위 구조가 완성되면 모달을 열때, 모달 컴포넌트 안에서 결과 값을 반환할 때, 결과 값을 받을 때 모두 타입 추론이 가능합니다.
+
+1. 모달을 호출할 때, 모달을 렌더링할 때 필요한 props의 타입을 자동으로 추론할 수 있습니다.
+
+![](/images/modal-props-type.png)
+
+2. 모달 컴포넌트에서 어떤 값을 반환할지 주입받는 submit 함수의 인자 값 타입을 자동으로 추론할 수 있습니다.
+
+![](/images/modal-submit-type.png)
+
+3. 모달을 호출 시, 컴포넌트에서 `submit` 함수로 반환하는 타입을 자동으로 추론할 수 있습니다.
+
+![](/images/modal-result-type.png)
+
 ## Promise 기반 모달 함수 만들기
 
 먼저 비지니스 로직에서 모달을 호출하는 코드를 보면, 스토어에서 꺼낸 `openModal` 함수로 첫번째 인자에 모달 컴포넌트, 두 번째 인자에 props를 넣어 모달을 열 수 있습니다.
