@@ -4,11 +4,38 @@ Tanstack Router를 살펴보면서 흥미가 생겨 기초적인 라우터 + 타
 
 구현된 기능은 정말 일부라 온전하지 않고 대략적인 컨셉 이해를 위해서 간단한 url 이동과 타입 추론하는 기능만 만들었습니다.
 
+## 타입 추론 미리보기
+
+후술할 내용을 통해 만들진 결과를 먼저 보겠습니다
+
+### Params 타입 추론하기
+
+예시로 페이지의 url slug가 `/dashboard/[$id]/[$view]`일 때, id를 `Number`로 파싱하고 view를 `pie | bar`로 파싱할 때
+params 변수의 타입이 지정한 zod schema에 맞게 추론됩니다.
+
+![](/images/typed-router-params2.png)
+
+페이지 이동시에도 정해진 타입에 맞게 값을 넣을 수 있습니다.
+
+![](/images/typed-router-params.png)
+
+### Search 타입 추론하기
+
+search의 경우도 동일하게 추론이 가능합니다. search로 `show`를 받아서 문자열을 boolean으로 파싱하는 스크립트를 작성하면, params와 동일하게 zod schema 타입에 따라 타입이 파싱되고
+
+![](/images/typed-router-search2.png)
+
+페이지 이동시에도 정해진 타입에 맞게 값을 넣을 수 있습니다.
+
+![](/images/typed-router-search.png)
+
+그럼, 이제 하나씩 만들어보겠습니다.
+
 ## 파일 기반 라우터
 
 Tanstack Router는 기본적으로 파일 기반으로 라우팅 하는걸 권장합니다. 이에 따라 저도 동일하게 폴더 기반으로 코드를 준비했습니다.
 
-```bash
+```bash showLineNumbers
 src
  ┣ routes
  ┃ ┣ dashboard
@@ -25,7 +52,7 @@ src
 
 파일 이름 뿐 아니라 코드로도 선언하는 이유는, 모든 라우터 파일에서 선언된 `Route` 객체를 한 파일에 자동으로 모아서 다른 페이지 이동시 라우터의 타입을 추론하기 위함입니다.
 
-```ts
+```ts showLineNumbers
 export const Route = createFileRoute("/dashboard/[$id]/[$view]")({
   component: Dashboard,
   errorComponent: () => <p>에러가 발생했습니다.</p>,
@@ -46,7 +73,7 @@ export const Route = createFileRoute("/dashboard/[$id]/[$view]")({
 
 만들어진 파일은 아래 구조로 제작했습니다.
 
-```ts
+```ts showLineNumbers
 import { Route as DashboardIdViewRouteImport } from "./routes/dashboard/[$id]/[$view]";
 // 모든 라우트 객체 import
 
@@ -76,7 +103,7 @@ export type RoutesType = typeof routes;
 
 위 코드는 개발자가 직접 작성하는게 아니라 자동으로 만들어지는 코드인데요, 이를 구현하기 위해서 `vite`의 커스텀 플러그인을 제작했습니다.
 
-```ts
+```ts showLineNumbers
 export type RouteNode = {
   name: string;
   path: string;
@@ -186,7 +213,7 @@ export type RoutesType = typeof routes;
 
 - `${infer Rest}`: 그 이후의 나머지 문자열을 Rest로 추출하고, 다시 재귀적으로 `ExtractParamsFromPath`를 호출해 변수가 여러개인 경우에도 타입을 추출할 수 있게 합니다.
 
-```ts
+```ts showLineNumbers
 type ExtractParamsFromPath<S extends string> =
   S extends `${infer _}[$${infer Param}]${infer Rest}`
     ? { [K in Param]: string } & ExtractParamsFromPath<Rest>
@@ -207,7 +234,7 @@ type Extracted = ExtractParamsFromPath<"/dashboard/[$id]/[$view]">;
 
 - `P extends { parse: (input: any) => infer R } ? R : undefined`: parse 함수가 `parse(input: any): any` 형태의 함수라면 parse 함수의 반환 타입을 R로 추론해서 리턴
 
-```ts
+```ts showLineNumbers
 type InferParsedParamsFromParams<
   P extends { parse: (input: any) => any } | undefined
 > = P extends { parse: (input: any) => infer R } ? R : undefined;
@@ -230,7 +257,7 @@ type InferSearchType<T extends ((input: unknown) => any) | undefined> =
 
 `RouteByPath<T>["component"] extends ...`로 `validateSearch` 가 구현되어 있는 라우트인지 확인하고, 맞다면 `validateSearch` 함수의 반환 타입을 파싱합니다.
 
-```ts
+```ts showLineNumbers
 export type RouteByPath<P extends RoutePath> = {
   [K in keyof RoutesType]: RoutesType[K]["path"] extends P
     ? RoutesType[K]
@@ -251,7 +278,7 @@ export type ValidateSearchReturn<T extends RoutePath> =
 
 #### 라우터의 옵션 타입
 
-```ts
+```ts showLineNumbers
 export type ParamsConfig<
   Path extends string,
   Parsed extends Record<string, any>,
@@ -288,7 +315,7 @@ export type RouteOptions<
 
 이제 선언한 타입을 사용해 `createFileRoute` 함수를 만들어줍니다. `RouteOptions` 타입을 제네릭으로 받아 타입이 추론될 수 있도록 하고, 만들어둔 함수의 결과 값을 파싱하는 타입 유틸 함수(`InferParsedParamsFromParams`, `InferSearchType`)를 사용해 params, search의 파싱 결과 타입을 추론합니다.
 
-```ts
+```ts showLineNumbers
 export const createFileRoute = <Path extends string>(path: Path) => {
   return <
     Opt extends RouteOptions<
@@ -310,7 +337,7 @@ export const createFileRoute = <Path extends string>(path: Path) => {
 
 params와 search 모두 이미 완성된 타입이 있기 떄문에 정의된 파싱함수를 실행하고, 타입을 지정해줍니다.
 
-```ts
+```ts showLineNumbers
 const useParams = (): Params => {
   if (!option.params) return {} as Params;
   // extractParams는 url에 있는 변수를 객체 형태로 파싱하는 함수
@@ -334,7 +361,7 @@ const useSearch = (): Search => {
 
 이미 프로젝트에 있는 모든 라우터의 타입을 알고 있기 때문에, 어떤 페이지로 이동하려면 어떤 값이 필요한지를 알고 있기 때문에 타입 자동완성이 중요합니다.
 
-```ts
+```ts showLineNumbers
 const useNavigate =
   () =>
   <T extends RoutePath>(path: T) => {
@@ -353,7 +380,7 @@ const useNavigate =
 - `Props`: params와 search는 라우터에서 사용하지 않는다면 undefined 일 수도 있습니다. 하지만 사용하지 않아도 타입을 추론할 때 undefined로 추론되어서 키 이름을 적어줘야 하는 불편함이 있어서, undefined 인 요소는 키를 제외할 수 있도록 작성했습니다.
   즉, params만 있다면 params만 작성하고 search라는 키는 정의하지 않아도 되도록 합니다.
 
-```ts
+```ts showLineNumbers
 const interpolatePath = <ParamsType>(
   template: string,
   params?: ParamsType
@@ -372,7 +399,7 @@ const interpolatePath = <ParamsType>(
 
 - `interpolatePath`: slug (/dashboard/[$id]/[$view] 같은 형식) 에서`[$param]` 형식을 추출하고 이를 순회하면서 params(객체)의 값을 넣어 이동할 url을 만들어주는 함수입니다.
 
-```ts
+```ts showLineNumbers
 const serializeSearch = <SearchType>(search?: SearchType): string => {
   if (!search) return "";
 
@@ -393,7 +420,7 @@ const serializeSearch = <SearchType>(search?: SearchType): string => {
 
 - `serializeSearch`: 파싱된 search 객체를 문자열로 만들어줍니다.
 
-```ts
+```ts showLineNumbers
     return (_props: Props) => {
       const props = _props as { params?: ParamsType; search?: SearchType };
 
@@ -422,7 +449,7 @@ url을 이동할 때 서버에 자원을 요청하지 않고 SPA로 관리하기
 1. 페이지 이동 시 경로를 저장하는 상태를 이동된 url로 업데이트
 2. 라우터 중 현재 url과 매칭되는 라우터가 있는지 검사하고 있다면 컴포넌트를 렌더링 (에러 컴포넌트가 지정되어 있다면 에러 바운더리 처리)
 
-```ts
+```ts showLineNumbers
 const findMatchingRoute = (pathname: string) =>
   Object.values(routes).find((route) => {
     // pathToRegex는 slug에 매칭되는 url을 찾을 수 있도록 slug를 정규식을 변환하는 함수
